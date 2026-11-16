@@ -18,7 +18,7 @@ A second, smaller Dimer. V1 in the folders above is unchanged and still builds o
 | Folder | What is in it |
 |---|---|
 | `cad/` | `dimer_v2_frame.py` generates the three printed parts and places every bought part. It reuses the part models in `../cad/dimer_components.py`. `cad/step/` has one STEP per printed part, the full assembly, and `components/` with the parts V1 does not have. |
-| `docs/` | `BOM.md` buying list, preview image, and `web/dimer_v2_build_plan.html`, the 3D build page (live at https://claude.ai/artifact/1GJJysHat3mT6KsMUrrWHj). |
+| `docs/` | `BOM.md` buying list, preview image, `drawings/` with the four-view A3 drawing (PDF, SVG, PNG), and `web/dimer_v2_build_plan.html`, the 3D build page (live at https://claude.ai/artifact/1GJJysHat3mT6KsMUrrWHj). |
 | `firmware/` | `dimer_v2_pins.h` pin map for the ESP32-S3 Super Mini. |
 
 ## Printed parts
