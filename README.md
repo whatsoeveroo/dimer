@@ -10,6 +10,8 @@ a front shovel, a face display, and voice through the OpenAI API.
 | `docs/` | `BOM.md` buying list, preview images. |
 | `firmware/` | `dimer_pins.h` pin map for the ESP32-S3. |
 
+A half-size second robot, Dimer V2, lives in [`v2/`](v2/README.md).
+
 ## Status (v0.1)
 
 - Frame: rough guideline only. Track and wheel sizes are placeholders until a track set is chosen.
