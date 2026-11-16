@@ -31,11 +31,14 @@ BAT_X = -6.5
 PAN_X = 58.0                                   # head rotation axis
 SERVO_BODY = (22.8, 12.2, 22.5)                # MG90S
 SERVO_CUT = (23.4, 12.8)
-HEAD = (46.0, 72.0, 52.0)                      # head frame envelope (x, y, z)
+HEAD = (46.0, 72.0, 62.0)                      # head frame envelope (x, y, z)
 HEAD_Z = 64.0
 EDGE_X, EDGE_Y = 82.0, 48.0                    # table-edge sensor positions (in front of / behind each track)
 SHOVEL_PIVOT = (65.0, 37.8)                    # x, z of shovel axis (left wall)
 BLADE_H, BLADE_X = 26.0, 92.0
+SWITCH_HOLE, JACK_HOLE = 20.2, 8.2             # round rocker switch and DC charging socket (measure yours)
+TOF_Z = 13.0                                   # sensor centre height above the head floor
+TOF_HOLES = (17.0, 13.0)                       # distance sensor mounting hole spacing (measure yours)
 
 def box(x, y, z, cx=0, cy=0, z0=0):
     return cq.Workplane("XY").box(x, y, z, centered=(True, True, False)).translate((cx, cy, z0))
@@ -67,13 +70,13 @@ def chassis():
         tub = tub.union(cradle).cut(slot)
     # shovel servo shaft opening in the left wall + pivot pin hole in the right wall
     tub = tub.cut(box(SERVO_CUT[0], WALL + 2, SERVO_CUT[1], cx=SHOVEL_PIVOT[0] - (SERVO_BODY[0] / 2 - 6), cy=TUB_W / 2 - WALL / 2, z0=SHOVEL_PIVOT[1] - SERVO_CUT[1] / 2))
-    # rear wall: speaker grille, rocker switch opening, USB-C charging slot
+    # rear wall: speaker grille, round power switch hole, charging socket hole
     for gy in (-8, -4, 0, 4, 8):
         for gz in (20, 24, 28, 32, 36):
             if abs(gy) + abs(gz - 28) <= 12:
                 tub = tub.cut(cq.Workplane('YZ').circle(1.2).extrude(WALL + 2).translate((-TUB_L / 2 - 1, gy, gz)))
-    tub = tub.cut(box(WALL + 2, 8.8, 13.2, cx=-TUB_L / 2 + WALL / 2, cy=-26, z0=30 - 6.6))
-    tub = tub.cut(box(WALL + 2, 9.6, 3.8, cx=-TUB_L / 2 + WALL / 2, cy=26, z0=27.4))
+    tub = tub.cut(cq.Workplane('YZ').circle(SWITCH_HOLE / 2).extrude(WALL + 2).translate((-TUB_L / 2 - 1, -25, 31)))
+    tub = tub.cut(cq.Workplane('YZ').circle(JACK_HOLE / 2).extrude(WALL + 2).translate((-TUB_L / 2 - 1, 26, 31)))
     tub = tub.cut(ycyl(3.2, WALL + 2, SHOVEL_PIVOT[0], SHOVEL_PIVOT[1], -TUB_W / 2 - 1))
     # cable pass-throughs in the floor and battery strap slots
     for x in (-30, 20):
@@ -110,13 +113,15 @@ def head_frame():
     hx, hy, hz = HEAD
     shell = box(hx, hy, hz, cx=PAN_X, z0=HEAD_Z).cut(box(hx - 6, hy - 6, hz - 3, cx=PAN_X, z0=HEAD_Z + 3))
     # display window in the front face (2.0 inch 240x320 used landscape: 41 x 31 mm active)
-    shell = shell.cut(box(8, 42, 32, cx=PAN_X + hx / 2 - 1.5, z0=HEAD_Z + 12))
+    shell = shell.cut(box(8, 42, 32, cx=PAN_X + hx / 2 - 1.5, z0=HEAD_Z + 25))
     # servo horn screw + cable hole in the floor
     shell = shell.cut(cq.Workplane("XY").circle(3.5).extrude(6).translate((PAN_X, 0, HEAD_Z - 1)))
     shell = shell.cut(box(10, 14, 6, cx=PAN_X - 14, z0=HEAD_Z - 1))
-    # distance-sensor window under the display, mic hole above it
-    shell = shell.cut(box(8, 14, 5, cx=PAN_X + hx / 2 - 1.5, z0=HEAD_Z + 4.5))
-    shell = shell.cut(cq.Workplane('YZ').circle(1.0).extrude(8).translate((PAN_X + hx / 2 - 5, 0, HEAD_Z + 47)))
+    # distance-sensor window below the display, with four M2 screw holes around it
+    shell = shell.cut(box(8, 13, 11, cx=PAN_X + hx / 2 - 1.5, z0=HEAD_Z + TOF_Z - 5.5))
+    for sy in (-1, 1):
+        for sz in (-1, 1):
+            shell = shell.cut(cq.Workplane('YZ').circle(0.9).extrude(8).translate((PAN_X + hx / 2 - 5, -2 + sy * TOF_HOLES[0] / 2, HEAD_Z + TOF_Z + sz * TOF_HOLES[1] / 2)))
     return shell
 
 # ---------------- shovel ----------------
@@ -212,31 +217,15 @@ put("motor_left", dc.motor_n20(), T(-WHEELBASE / 2, TUB_W_IN / 2, AXLE_Z))
 put("motor_right", dc.motor_n20(), T(-WHEELBASE / 2, -TUB_W_IN / 2, AXLE_Z) * R(RZ, 180))
 BAT_TOP = FLOOR_Z + FLOOR_T + 20.6
 put("battery", dc.battery_2x18650(), T(BAT_X, 0, FLOOR_Z + FLOOR_T))
-if os.path.exists(STEP_PCB):
-    put("main_pcb", load_colored_step(STEP_PCB, "main_pcb"), T(PCB_X - PCB_L / 2, PCB_W / 2, PCB_Z))
-else:
-    pcb = cq.Assembly(name="main_pcb"); pcb.add(box(PCB_L, PCB_W, 1.6), color=cq.Color(0.05, 0.4, 0.2)); put("main_pcb", pcb, T(PCB_X, 0, PCB_Z))
-tb = []
-for by in (13.97, 26.67, 39.37, 52.07):          # screw terminals on the board (board x = 92.71)
-    blk = box(7.6, 10.16, 10.0, cx=92.71, cy=-(by + 2.54), z0=1.6)
-    for k in (0, 5.08):
-        blk = blk.cut(box(4.0, 3.6, 4.2, cx=95.5, cy=-(by + k), z0=3.0)).cut(cq.Workplane("XY").circle(1.7).extrude(3).translate((92.71, -(by + k), 9.2)))
-        tb.append((cq.Workplane("XY").circle(1.5).extrude(0.6).translate((92.71, -(by + k), 8.9)), "steel"))
-    tb.append((blk, "pcb_blue"))
-put("pcb_screw_terminals", dc.asm("pcb_screw_terminals", tb), T(PCB_X - PCB_L / 2, PCB_W / 2, PCB_Z))
+put("main_pcb", dc.main_board_v02(), T(PCB_X - PCB_L / 2, PCB_W / 2, PCB_Z))
 put("esp32_s3_devkit", dc.esp32_s3_devkit(), T(PCB_X - PCB_L / 2 + 44.45, PCB_W / 2 - 34.29, PCB_Z + 1.6 + 8.5))
 put("servo_pan", dc.servo_mg90s(), T(PAN_X, 0, WALL_TOP + 4))
 put("servo_shovel", dc.servo_mg90s(), T(SHOVEL_PIVOT[0], TUB_W_IN / 2 - 2.5, SHOVEL_PIVOT[1]) * R(RX, -90))
-put("face_display", dc.lcd_2in(), T(PAN_X + HEAD[0] / 2 - 3, 3, HEAD_Z + 28))
-put("distance_sensor", dc.vl53l0x_tof(), T(PAN_X + HEAD[0] / 2 - 6, 0, HEAD_Z + 7) * R(RY, 90) * R(RZ, 90))
-put("microphone", dc.inmp441_mic(), T(PAN_X + HEAD[0] / 2 - 6, 0, HEAD_Z + 47) * R(RY, 90))
+put("face_display", dc.lcd_2in(), T(PAN_X + HEAD[0] / 2 - 3, 3, HEAD_Z + 41))
+put("distance_sensor", dc.tof200f(), T(PAN_X + HEAD[0] / 2 - 3 - 1.2, -2, HEAD_Z + TOF_Z) * R(RY, 90) * R(RZ, 90))
 put("speaker", dc.speaker_28mm(), T(-TUB_L / 2 + WALL + 0.1, 0, 28))
-put("power_switch", dc.rocker_switch(), T(-TUB_L / 2, -26, 30))
-put("usb_c_charger", dc.charger_2s_usbc(), T(-TUB_L / 2 + 13.5, 26, 26))
-put("motor_driver", dc.drv8833_driver(), T(-30, -11, BAT_TOP))
-put("converter_5v", dc.mini560_buck(), T(-30, 11, BAT_TOP))
-put("speaker_amplifier", dc.max98357_amp(), T(8, 11, BAT_TOP))
-put("battery_protection", dc.bms_2s(), T(8, -13, BAT_TOP))
+put("power_switch", dc.rocker_round(), T(-TUB_L / 2, -25, 31))
+put("charging_socket", dc.dc_jack_panel(), T(-TUB_L / 2, 26, 31))
 for sx, fx in ((1, "front"), (-1, "rear")):
     put("edge_sensor_%s_left" % fx, dc.tcrt5000_module(), T(sx * EDGE_X, EDGE_Y, FLOOR_Z + FLOOR_T))
     put("edge_sensor_%s_right" % fx, dc.tcrt5000_module(), T(sx * EDGE_X, -EDGE_Y, FLOOR_Z + FLOOR_T) * R(RZ, 180))
