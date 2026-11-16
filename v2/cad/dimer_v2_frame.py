@@ -186,6 +186,11 @@ RX, RY, RZ = (1, 0, 0), (0, 1, 0), (0, 0, 1)
 
 placed = []
 def put(name, a, loc): placed.append((name, a, loc))
+# groups in the assembly tree, so a CAD program shows folders instead of one long flat list
+GROUPS = {"track": "drive", "motor": "drive", "battery": "power", "usb_c": "power", "power_": "power", "esp32": "brain",
+          "speaker": "voice", "microphone": "voice", "face_": "face", "distance": "senses", "edge_": "senses"}
+def group_of(name):
+    return next(g for k, g in GROUPS.items() if name.startswith(k))
 
 for sy, tag in ((1, "left"), (-1, "right")):
     put("track_" + tag, track_v2(), T(0, sy * TRACK_Y, AXLE_Z))
@@ -204,19 +209,23 @@ put("microphone", dc.inmp441_mic(), T(HEAD_X0 + HEAD_L / 2 + 0.7, 0, HEAD_Z + HE
 put("edge_sensor_front_left", dc.tcrt5000_module(), T(EDGE_X, EDGE_Y, EDGE_Z))
 put("edge_sensor_front_right", dc.tcrt5000_module(), T(EDGE_X, -EDGE_Y, EDGE_Z) * R(RZ, 180))
 
+# .clean() merges faces that lie on the same plane or cylinder, so each wall is one face to push or pull
 parts = {
-    "v2_frame_chassis": (chassis(), (0.62, 0.72, 0.74)),
-    "v2_frame_top": (top(), (0.72, 0.82, 0.84)),
-    "v2_frame_shovel": (shovel(), (0.85, 0.45, 0.38)),
+    "v2_frame_chassis": (chassis().clean(), (0.62, 0.72, 0.74)),
+    "v2_frame_top": (top().clean(), (0.72, 0.82, 0.84)),
+    "v2_frame_shovel": (shovel().clean(), (0.85, 0.45, 0.38)),
 }
 
 assy = cq.Assembly(name="dimer_v2_guideline")
 fa = cq.Assembly(name="dimer_v2_frame_only")
+sub = {g: cq.Assembly(name=g) for g in ["printed_frame"] + list(dict.fromkeys(GROUPS.values()))}
 for name, (shape, col) in parts.items():
-    assy.add(shape, name=name, color=cq.Color(*col)); fa.add(shape, name=name, color=cq.Color(*col))
+    sub["printed_frame"].add(shape, name=name, color=cq.Color(*col)); fa.add(shape, name=name, color=cq.Color(*col))
     cq.exporters.export(shape, os.path.join(OUT, name + ".step"))
 for name, a, loc in placed:
-    assy.add(a, name=name, loc=loc)
+    sub[group_of(name)].add(a, name=name, loc=loc)
+for g, a in sub.items():
+    assy.add(a, name=g)
 assy.save(os.path.join(OUT, "dimer_v2_guideline_assembly.step"))
 fa.save(os.path.join(OUT, "dimer_v2_frame_only.step"))
 
