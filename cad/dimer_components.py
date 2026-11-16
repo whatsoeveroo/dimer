@@ -264,3 +264,15 @@ def main_board_v02():
     parts.append((B(5, 5, 4, cx=46.6, cy=-58.6, z0=1.6), "dark"))
     parts.append((B(3.5, 2.65, 1.0, cx=27, cy=-14.6, z0=1.6), "steel"))
     return asm("main_board_v02", parts)
+
+def screw_terminals_v02():
+    """The six 2-pin screw terminals of the v0.2 board (KiCad has no 3D model for them). Same origin as the board."""
+    blocks = screws = None
+    for x, ys, right in ((92.71, (13.97, 26.67, 39.37), True), (6.35, (20.32, 30.48, 40.64), False)):
+        for y in ys:
+            blk = B(7.6, 10.0, 10.0, cx=x, cy=-(y + 2.54), z0=1.6)
+            for d in (0, 5.08):
+                blk = blk.cut(B(4.0, 3.6, 4.2, cx=x + (2.8 if right else -2.8), cy=-(y + d), z0=3.0)).cut(CZ(3.4, 3, cx=x, cy=-(y + d), z0=9.2))
+                sc = CZ(3.0, 0.6, cx=x, cy=-(y + d), z0=8.9); screws = sc if screws is None else screws.union(sc)
+            blocks = blk if blocks is None else blocks.union(blk)
+    return asm("pcb_screw_terminals", [(blocks, "pcb_blue"), (screws, "steel")])

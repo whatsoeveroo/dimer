@@ -217,7 +217,11 @@ put("motor_left", dc.motor_n20(), T(-WHEELBASE / 2, TUB_W_IN / 2, AXLE_Z))
 put("motor_right", dc.motor_n20(), T(-WHEELBASE / 2, -TUB_W_IN / 2, AXLE_Z) * R(RZ, 180))
 BAT_TOP = FLOOR_Z + FLOOR_T + 20.6
 put("battery", dc.battery_2x18650(), T(BAT_X, 0, FLOOR_Z + FLOOR_T))
-put("main_pcb", dc.main_board_v02(), T(PCB_X - PCB_L / 2, PCB_W / 2, PCB_Z))
+if os.path.exists(STEP_PCB):        # the routed board exported from KiCad
+    put("main_pcb", load_colored_step(STEP_PCB, "main_pcb"), T(PCB_X - PCB_L / 2, PCB_W / 2, PCB_Z))
+    put("pcb_screw_terminals", dc.screw_terminals_v02(), T(PCB_X - PCB_L / 2, PCB_W / 2, PCB_Z))
+else:                               # simplified stand-in
+    put("main_pcb", dc.main_board_v02(), T(PCB_X - PCB_L / 2, PCB_W / 2, PCB_Z))
 put("esp32_s3_devkit", dc.esp32_s3_devkit(), T(PCB_X - PCB_L / 2 + 44.45, PCB_W / 2 - 34.29, PCB_Z + 1.6 + 8.5))
 put("servo_pan", dc.servo_mg90s(), T(PAN_X, 0, WALL_TOP + 4))
 put("servo_shovel", dc.servo_mg90s(), T(SHOVEL_PIVOT[0], TUB_W_IN / 2 - 2.5, SHOVEL_PIVOT[1]) * R(RX, -90))
@@ -274,7 +278,7 @@ if len(sys.argv) > 1:   # optional: mesh dump for the web preview
     for name, a, loc in placed:
         for shp, col in leaves(a, loc):
             c = col.toTuple()[:3] if col is not None else (0.5, 0.5, 0.5)
-            dump("part_" + name, shp, c, 0.4 if name == "main_pcb" else 0.25)
+            dump("part_" + name.replace("pcb_screw_terminals", "main_pcb"), shp, c, 0.4 if name == "main_pcb" else 0.25)
     json.dump(mesh, open(sys.argv[1], "w"), separators=(",", ":"))
 
 bb = assy.toCompound().BoundingBox()

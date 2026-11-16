@@ -171,6 +171,8 @@ res("R3", "330R", 60.96, 52.6, 90, "LED_DATA", "LED_DIN", "C23138")
 smd("Package_SO.pretty", "HTSSOP-16-1EP_4.4x5mm_P0.65mm_EP3.4x5mm_Mask2.46x2.31mm", "U2", "DRV8833PWP", 26.0, 34.3, 0,
     {"1": "3V3", "2": "MOTL_A", "3": "GND", "4": "MOTL_B", "5": "MOTR_B", "6": "GND", "7": "MOTR_A", "9": "MOT_BIN1", "10": "MOT_BIN2",
      "11": "DRV_VCP", "12": "VSW", "13": "GND", "14": "DRV_VINT", "15": "MOT_AIN2", "16": "MOT_AIN1", "17": "GND"}, "C50506")
+pd = [p for p in board.FindFootprintByReference("U2").Pads() if p.GetNumber() == "12"][0].GetPosition()   # thin escape from the motor-supply pin; the wide VSW track joins its end
+t = pcbnew.PCB_TRACK(board); t.SetStart(pd); t.SetEnd(P(30.7, ToMM(pd.y))); t.SetWidth(FromMM(0.35)); t.SetLayer(pcbnew.F_Cu); t.SetNet(net("VSW")); board.Add(t)
 cap("C4", "10uF 25V", 32.4, 37.2, 90, "VSW", "GND", **C10U)
 cap("C5", "10nF", 31.0, 40.3, 0, "DRV_VCP", "VSW", lcsc="C57112")
 cap("C6", "10uF 25V", 32.4, 31.6, 90, "GND", "DRV_VINT", **C10U)
@@ -183,6 +185,9 @@ for pn in ("3", "11", "15"):              # tie the amplifier's ground pins to i
     px, py = ToMM(pd.x), ToMM(pd.y)
     t = pcbnew.PCB_TRACK(board); t.SetStart(P(px, py)); t.SetEnd(P(42.5, py) if abs(px - 42.5) > abs(py - 34.3) else P(px, 34.3))
     t.SetWidth(FromMM(0.25)); t.SetLayer(pcbnew.F_Cu); t.SetNet(net("GND")); board.Add(t)
+v = pcbnew.PCB_VIA(board); v.SetPosition(P(42.5, 34.3)); v.SetDrill(FromMM(VIA_DRILL)); v.SetWidth(FromMM(VIA_D))   # amplifier centre pad down to the ground pour
+v.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu); v.SetNet(net("GND")); board.Add(v)
+t = pcbnew.PCB_TRACK(board); t.SetStart(P(43.9375, 34.55)); t.SetEnd(P(45.7, 34.55)); t.SetWidth(FromMM(0.25)); t.SetLayer(pcbnew.F_Cu); t.SetNet(net("SPK-")); board.Add(t)   # thin escape from the fine-pitch pad
 cap("C7", "10uF 25V", 42.5, 39.4, 0, "5V", "GND", **C10U)
 cap("C8", "100nF", 46.4, 38.0, 90, "5V", "GND")
 res("R4", "100k", 38.4, 37.6, 90, "AMP_SD", "5V", "C25803")
@@ -237,7 +242,7 @@ text("DIMER MAIN v0.2 - 2 x 18650 in (6.0-8.4 V) - assembled by JLCPCB", 50, 35,
 
 # ---------------- design rules ----------------
 ds = board.GetDesignSettings()
-ds.m_MinClearance = FromMM(0.15); ds.m_TrackMinWidth = FromMM(0.2); ds.m_ViasMinSize = FromMM(0.6)
+ds.m_MinResolvedSpokes = 1; ds.m_MinClearance = FromMM(0.15); ds.m_TrackMinWidth = FromMM(0.2); ds.m_ViasMinSize = FromMM(0.6)
 ds.m_MinThroughDrill = FromMM(0.3); ds.m_CopperEdgeClearance = FromMM(0.4); ds.m_HoleClearance = FromMM(0.25)
 ds.m_HoleToHoleMin = FromMM(0.45); ds.m_ViasMinAnnularWidth = FromMM(0.15)
 ds.m_NetSettings.m_DefaultNetClass.SetClearance(FromMM(0.2))
@@ -254,7 +259,7 @@ dsn, ses = os.path.join(WORK, "dimer.dsn"), os.path.join(WORK, "dimer.ses")
 board = pcbnew.LoadBoard(out)
 pcbnew.ExportSpecctraDSN(board, dsn)
 WIDTHS = {"BAT+": 1.2, "FUSED": 1.2, "SW_B": 1.2, "VSW": 0.6, "5V": 0.6, "BUCK_SW": 0.6, "GND": 0.4,
-          "MOTL_A": 0.4, "MOTL_B": 0.4, "MOTR_A": 0.4, "MOTR_B": 0.4, "SPK+": 0.4, "SPK-": 0.4, "3V3": 0.4}
+          "MOTL_A": 0.4, "MOTL_B": 0.4, "MOTR_A": 0.4, "MOTR_B": 0.4, "SPK+": 0.3, "SPK-": 0.3, "3V3": 0.4}
 txt = open(dsn).read()
 m = re.search(r'\(class kicad_default "" (.*?)\n\s*\(circuit', txt, flags=re.S)
 allnets = m.group(1).split()
@@ -297,9 +302,35 @@ for blk in re.split(r"\(net ", body)[1:]:
             t = pcbnew.PCB_TRACK(board); t.SetStart(P(x1, -y1)); t.SetEnd(P(x2, -y2)); t.SetWidth(FromMM(int(width) * SCALE))
             t.SetLayer(pcbnew.F_Cu if layer == "F.Cu" else pcbnew.B_Cu); t.SetNet(ni); board.Add(t); ntracks += 1
     for x, y in re.findall(r'\(via \S+ (-?\d+) (-?\d+)', blk):
+        if any(tv.GetClass() == "PCB_VIA" and tv.GetPosition() == P(int(x) * SCALE, -int(y) * SCALE) for tv in board.GetTracks()): continue   # already placed by hand
         v = pcbnew.PCB_VIA(board); v.SetPosition(P(int(x) * SCALE, -int(y) * SCALE)); v.SetDrill(FromMM(VIA_DRILL)); v.SetWidth(FromMM(VIA_D))
         v.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu); v.SetNet(ni); board.Add(v); nvias += 1
 print("routed: %d track segments, %d vias" % (ntracks, nvias))
+
+# ---------------- ground stitching vias (tie the top and bottom ground pours together) ----------------
+def _seg_d(px, py, ax, ay, bx, by):
+    dx, dy = bx - ax, by - ay; L2 = dx * dx + dy * dy
+    u = 0 if L2 == 0 else max(0, min(1, ((px - ax) * dx + (py - ay) * dy) / L2))
+    return math.hypot(px - ax - u * dx, py - ay - u * dy)
+_tr = [(ToMM(t.GetStart().x), ToMM(t.GetStart().y), ToMM(t.GetEnd().x), ToMM(t.GetEnd().y), ToMM(t.GetWidth()) / 2) for t in board.GetTracks()]
+_pads = []
+for fp in board.GetFootprints():
+    for p in fp.Pads():
+        bb = p.GetBoundingBox(); _pads.append((ToMM(bb.GetLeft()), ToMM(bb.GetTop()), ToMM(bb.GetRight()), ToMM(bb.GetBottom())))
+nst = 0
+gy = 3.0
+while gy < H - 2.9:
+    gx = 3.0
+    while gx < W - 2.9:
+        ok = all(_seg_d(gx, gy, a, b, c, d) > w + VIA_D / 2 + 0.3 for a, b, c, d, w in _tr)
+        ok = ok and all(not (l - 0.9 < gx < r + 0.9 and tp - 0.9 < gy < bt + 0.9) for l, tp, r, bt in _pads)
+        ok = ok and all(math.hypot(gx - hx, gy - hy) > 4.5 for hx in (4, W - 4) for hy in (4, H - 4))
+        if ok:
+            v = pcbnew.PCB_VIA(board); v.SetPosition(P(gx, gy)); v.SetDrill(FromMM(VIA_DRILL)); v.SetWidth(FromMM(VIA_D))
+            v.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu); v.SetNet(board.FindNet("GND")); board.Add(v); nst += 1
+        gx += 4.0
+    gy += 4.0
+print("ground stitching vias:", nst)
 
 # ---------------- ground pours ----------------
 F, B = pcbnew.F_Cu, pcbnew.B_Cu
