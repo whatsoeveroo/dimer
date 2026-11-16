@@ -1,4 +1,2 @@
+pcb/logs/
 __pycache__/
-*.kicad_prl
-*-bak
-fp-info-cache

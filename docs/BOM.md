@@ -1,39 +1,61 @@
-# Dimer buying list
+# Dimer buying list (v0.2, no soldering)
 
-Prices are rough estimates in USD, not live quotes. Links are AliExpress searches, so pick a seller with many orders and good ratings.
+Every link below opens one product from one seller. Each page was opened and checked on 2026-11-16 from Korea.
+Prices are what the page showed that day in KRW and they move daily. Where a page has several options, the
+"Pick this option" column says which one to click.
 
-| Group | Part | Qty | Est. $ | Search | Why |
-|---|---|---|---|---|---|
-| Brain | ESP32-S3-DevKitC-1 N16R8 dev board | 1 | 7 | [search](https://www.aliexpress.com/w/wholesale-ESP32-S3-DevKitC-1-N16R8.html) | The robot's computer. Wi-Fi built in. Get the N16R8 version. |
-| Drive | N20 gear motor, 6 V, about 100 RPM, 3 mm D-shaft | 3 | 8 | [search](https://www.aliexpress.com/w/wholesale-N20-gear-motor-6V-100RPM.html) | Two used, one spare. Slower RPM means more pushing force. |
-| Drive | Small track and wheel set (rubber or metal, about 110 mm between axles) | 1 | 14 | [search](https://www.aliexpress.com/w/wholesale-mini-tank-track-wheel-set-N20-robot.html) | The one part to choose by eye. Pick the look you like, then tell me its sizes. |
-| Drive | DRV8833 dual motor driver module | 2 | 2 | [search](https://www.aliexpress.com/w/wholesale-DRV8833-motor-driver-module.html) | Lets the brain control the two motors. One spare. |
-| Motion | MG90S metal-gear micro servo | 4 | 10 | [search](https://www.aliexpress.com/w/wholesale-MG90S-metal-gear-servo.html) | Head turn, shovel, optional head tilt, one spare. |
-| Face | 2.0 inch IPS display, ST7789, 240x320, SPI, 8 pins | 1 | 5 | [search](https://www.aliexpress.com/w/wholesale-2.0-inch-IPS-ST7789-240x320-SPI-8pin.html) | The face. Check the listing shows 8 pins: GND VCC SCL SDA RES DC CS BLK. |
-| Senses | TCRT5000 infrared sensor module (with DO pin) | 5 | 3 | [search](https://www.aliexpress.com/w/wholesale-TCRT5000-infrared-sensor-module.html) | Table-edge detectors, one per corner. One spare. |
-| Senses | VL53L0X distance sensor module | 1 | 3 | [search](https://www.aliexpress.com/w/wholesale-VL53L0X-ToF-distance-sensor-module.html) | Sits in the head so the robot can see what is in front of it. |
-| Senses | MPU6050 motion sensor module (optional) | 1 | 2 | [search](https://www.aliexpress.com/w/wholesale-MPU6050-GY-521-module.html) | Knows if the robot is tilted or picked up. Nice to have. |
-| Voice | INMP441 I2S microphone module | 1 | 3 | [search](https://www.aliexpress.com/w/wholesale-INMP441-I2S-microphone-module.html) | The ears. |
-| Voice | MAX98357A I2S amplifier module | 1 | 3 | [search](https://www.aliexpress.com/w/wholesale-MAX98357A-I2S-amplifier-module.html) | Drives the speaker. |
-| Voice | Speaker, 28 mm, 4 ohm 3 W | 1 | 2 | [search](https://www.aliexpress.com/w/wholesale-28mm-speaker-4-ohm-3W.html) | The voice. |
-| Power | 2 x 18650 battery holder (series, with wires) | 1 | 2 | [search](https://www.aliexpress.com/w/wholesale-2x-18650-battery-holder-series-wire.html) | Holds the two battery cells. |
-| Power | 18650 Li-ion cells, protected, name brand | 2 | 10 | [search](https://www.aliexpress.com/w/wholesale-18650-battery-protected-3000mAh.html) | Better bought locally in Korea. Battery shipping from AliExpress is slow or blocked. |
-| Power | 2S (7.4 V) BMS protection board | 1 | 2 | [search](https://www.aliexpress.com/w/wholesale-2S-7.4V-BMS-protection-board-18650.html) | Stops the cells from over-discharging or shorting. |
-| Power | 2S USB-C Li-ion charger module (8.4 V) | 1 | 3 | [search](https://www.aliexpress.com/w/wholesale-2S-type-C-lithium-charger-module-8.4V.html) | Charges the pack from a phone charger. |
-| Power | Mini560 step-down module, 5 V fixed, 5 A | 2 | 4 | [search](https://www.aliexpress.com/w/wholesale-Mini560-5V-5A-step-down-module.html) | Turns battery voltage into 5 V for servos and brain. One spare. |
-| Power | Small rocker switch | 2 | 1 | [search](https://www.aliexpress.com/w/wholesale-mini-rocker-switch-KCD11.html) | On/off. |
-| Board parts | Screw terminal, 2 pin, 5.08 mm pitch | 10 | 2 | [search](https://www.aliexpress.com/w/wholesale-KF301-2P-5.08mm-screw-terminal.html) | Four go on the PCB for battery, switch and 5 V. |
-| Board parts | Pin header and female socket strips, 2.54 mm | 1 | 4 | [search](https://www.aliexpress.com/w/wholesale-2.54mm-pin-header-female-socket-strip-40pin-kit.html) | All PCB connectors, plus the sockets the brain plugs into. |
-| Board parts | Resistor kit (need 100k, 47k, 330 ohm) | 1 | 3 | [search](https://www.aliexpress.com/w/wholesale-resistor-kit-1/4W-metal-film-assortment.html) | Small helper parts for the PCB. |
-| Board parts | Capacitors: 470 uF 16 V, 220 uF 16 V, 100 nF | 1 | 3 | [search](https://www.aliexpress.com/w/wholesale-electrolytic-capacitor-kit-16V-assortment.html) | Smooth out power dips when servos move. |
-| Board parts | 1N5822 diode and 3 A resettable fuse (RXEF300) | 1 | 3 | [search](https://www.aliexpress.com/w/wholesale-1N5822-schottky-diode.html) | Protects the board if the battery is wired backwards or something shorts. Search the fuse as 'RXEF300 PTC fuse'. |
-| Wiring | Dupont jumper wires, female-female, 10 and 20 cm | 1 | 4 | [search](https://www.aliexpress.com/w/wholesale-dupont-jumper-wire-female-to-female-20cm.html) | Plug-in wires between the PCB and every module. No soldering. |
-| Wiring | Silicone wire, 22 AWG, red and black | 1 | 4 | [search](https://www.aliexpress.com/w/wholesale-22AWG-silicone-wire-red-black.html) | Battery and motor wiring. |
-| Hardware | M3 screw, nut and standoff kit, plus M3 heat-set inserts | 1 | 8 | [search](https://www.aliexpress.com/w/wholesale-M3-screw-nut-standoff-kit-heat-set-insert.html) | Holds the frame, PCB and shell together. |
-| Later | WS2812B LED strip, 0.5 m (for the fin) | 1 | 3 | [search](https://www.aliexpress.com/w/wholesale-WS2812B-LED-strip-5V-60-leds.html) | The fin lighting you mentioned. The PCB already has a plug for it. |
-| Later | TTP223 touch sensor or push button | 2 | 1 | [search](https://www.aliexpress.com/w/wholesale-TTP223-touch-sensor-module.html) | A pat-on-the-head sensor. |
-| PCB | Custom Dimer main board, 5 pieces, from JLCPCB | 1 | 15 | jlcpcb.com | Not AliExpress. About $2 to $5 for the boards, the rest is shipping. |
-| Tools if missing | Soldering iron kit with solder | 1 | 18 | [search](https://www.aliexpress.com/w/wholesale-soldering-iron-kit-60W-adjustable-temperature.html) | Only if you cannot borrow one at school. |
-| Tools if missing | Digital multimeter | 1 | 10 | [search](https://www.aliexpress.com/w/wholesale-digital-multimeter.html) | For checking voltage before plugging the brain in. |
+This list goes with the v0.2 main board, which JLCPCB builds with all chips and connectors already fitted.
+You only plug things in and tighten screw terminals.
 
-**Estimated total: about $162** ($134 without the optional tools), which leaves room under $200 for shipping and one re-order.
+## AliExpress
+
+| # | Part | Buy | Pick this option | Qty to order | Price seen | Checked on the page |
+|---|---|---|---|---|---|---|
+| 1 | Brain: ESP32-S3 DevKitC-1 N16R8 | [product page](https://www.aliexpress.com/item/1005006240070551.html) | "ESP32-S3 soldered" (N16R8) | 1 | ₩4,080 | Pins already soldered |
+| 2 | Face: 2.0 inch IPS display, ST7789, 8 pins | [product page](https://www.aliexpress.com/item/1005002363748586.html) | only one option | 1 | ₩3,480 | 8 pins already soldered |
+| 3 | Table-edge sensors: TCRT5000 module | [product page](https://www.aliexpress.com/item/1005008965242714.html) | "4PCS" | 1 | ₩2,472 | 3 pins already soldered |
+| 4 | Distance sensor: TOF200F (housed VL53L0X with cable) | [product page](https://www.aliexpress.com/item/1005008657721399.html) | "TOF0200F" | 1 | ₩9,506 | Comes with a plug-in cable that ends in jumper sockets |
+| 5 | Drive motors: N20 gear motor with encoder and cable | [product page](https://www.aliexpress.com/item/1005007886406269.html) | 6 V, 100 rpm | 2 | ₩16,284 | Cable included, so nothing to solder on the motor |
+| 6 | Servos: MG90S metal gear, 4 pieces | [product page](https://www.aliexpress.com/item/4001193413905.html) | only one option | 1 | ₩11,477 | Two used (head, shovel), two spare |
+| 7 | Speaker: 28 mm, 4 ohm, with cable, 2 pieces | [product page](https://www.aliexpress.com/item/1005009922386828.html) | 4 ohm | 1 | ₩11,650 | Cable attached. Cut the small plug off and strip the two wires |
+| 8 | Battery holder: 2 x 18650 with wire leads | [product page](https://www.aliexpress.com/item/1005004429543070.html) | "2X" | 1 | ₩454 | Red and black leads attached |
+| 9 | Charger: 8.4 V 1 A, 5.5 x 2.1 mm plug | [product page](https://www.aliexpress.com/item/1005001803376849.html) | EU plug | 1 | ₩6,100 | For 2 cells in series |
+| 10 | Charging socket: panel DC jack with cable, 2 pieces | [product page](https://www.aliexpress.com/item/1005012665509644.html) | 5.5 x 2.1 | 1 | ₩2,835 | Wires attached |
+| 11 | Power switch: round rocker with wires | [product page](https://www.aliexpress.com/item/1005012714169914.html) | 1PC | 1 | ₩1,494 | Red and black leads attached |
+| 12 | Jumper wires: female to female, 20 cm, 40 pieces | [product page](https://www.aliexpress.com/item/1005006205169394.html) | "F-F(20CM) 40PCS" | 1 | ₩1,997 | |
+| 13 | Screws: M3 button head kit with nuts | [product page](https://www.aliexpress.com/item/1005007278965396.html) | "M3 x 392pcs" | 1 | about ₩7,000 | Price shown was for another option, check after clicking |
+| 14 | Tracks and wheels (choose by eye) | [option A](https://www.aliexpress.com/item/1005012018149833.html) or [option B](https://www.aliexpress.com/item/1005010530113079.html) | see note 1 | 1 | ₩7,770 or ₩11,350 | Not yet a sure fit, see note 1 |
+
+**AliExpress total: about ₩87,000 to ₩90,000** before shipping and coupons.
+
+## Not AliExpress
+
+| Part | Where | Qty | Rough cost | Note |
+|---|---|---|---|---|
+| 18650 Li-ion cells, **protected**, name brand | Korean shop (batteries ship badly from AliExpress) | 2 | about ₩12,000 | Must be the "protected" type, see note 2 |
+| Dimer main board v0.2, built by JLCPCB | jlcpcb.com | 5 boards, 2 built | my guess is ₩70,000 to ₩110,000 with shipping | I have no real quote yet. JLCPCB shows the exact price when the files are uploaded |
+
+**Whole robot: roughly ₩170,000 to ₩210,000**, compared with about ₩225,000 ($162) for the v0.1 list that needed soldering.
+
+## What was cut from the v0.1 list, and why
+
+- DRV8833 motor driver, MAX98357A amplifier, INMP441 microphone, Mini560 converter modules: these chips are now on the main board, fitted by JLCPCB.
+- 2S BMS board and USB-C charger module: replaced by protected cells plus a ready-made 8.4 V wall charger. Both needed soldering.
+- Screw terminals, pin headers, sockets, resistor kit, capacitor kit, diode, fuse: all fitted by JLCPCB.
+- Silicone wire: every bought part now comes with its own wires.
+- Heat-set inserts: they need a soldering iron. Screws go straight into the printed plastic instead.
+- Soldering iron kit and multimeter.
+- MPU6050 tilt sensor, LED strip, touch sensor: not needed for the first working robot. The board keeps plugs for them, so they can be added later.
+- Spares of everything except servos and the items sold in packs.
+
+## Notes
+
+1. **Tracks.** Both track sets have wheels with 4 mm (or 6 mm) holes, and the N20 motor shaft is 3 mm. I have not found a track set that
+   is sure to fit a 3 mm shaft. Choose the look you like, then the frame gets a small printed 3-to-4 mm sleeve, or we look for a different
+   set together. Do not order tracks until this is settled.
+2. **Protected cells.** With the BMS board gone, the cells' own protection circuit is what stops over-discharge and short circuits.
+   Protected cells are about 3 to 4 mm longer than bare ones and can be tight in some holders. If they do not fit holder #8, tell me the
+   cell length and I will pick another holder.
+3. **Speaker and motor cables** end in small plugs that do not match the board. You cut the plug off with scissors, strip about 6 mm of
+   insulation, and clamp the bare wire in a screw terminal. No solder.
+4. **Distance sensor.** The TOF200F is a different module from the one in v0.1, so the head frame gets new mounting holes for it.

@@ -197,26 +197,82 @@ def small_board(name, x, y, colour, chips, pins=None, hole=None, pins_down=False
             parts.append((s.translate((cx, cy, 0 if pins_down else 1.6)), col))
     return asm(name, parts)
 
-def inmp441_mic():
-    a = small_board("inmp441_microphone", 14, 14, "pcb_purple", [(4, 3, 1.0, 0, 0, "steel"), (1.6, 0.8, 0.6, 3, 3, "dark")], pins=[(3, 0, -5.5, "x"), (3, 0, 5.5, "x")], pins_down=True)
-    return a
-def max98357_amp():
-    return small_board("max98357a_amplifier", 18, 18, "pcb_blue", [(3.2, 3.2, 0.8, 0, -1, "black"), (7.6, 7, 8, 0, 5, "pcb_green"), (2, 1.2, 1, -5, -3, "dark")], pins=[(7, 0, -7.5, "x")])
-def vl53l0x_tof():
-    return small_board("vl53l0x_distance_sensor", 25, 10.7, "pcb_purple", [(4.4, 2.4, 1.0, 0, 1.5, "black"), (1.6, 0.8, 0.6, 5, 2, "dark")], pins=[(4, 0, -3.8, "x")], hole=[(-10, 0), (10, 0)], pins_down=True)
-def drv8833_driver():
-    return small_board("drv8833_motor_driver", 18.5, 16, "pcb_purple", [(5, 4.4, 1.1, 0, 0, "black"), (3.2, 1.6, 1.4, -5, 0, "yellow")], pins=[(6, 0, -6.6, "x"), (6, 0, 6.6, "x")])
-def mini560_buck():
-    return small_board("mini560_5v_converter", 20, 12, "pcb_green", [(6.8, 6.8, 4.2, 2.5, 0, "dark"), (3, 3, 1, -4.5, 2, "black"), (3.2, 1.6, 1.6, -4.5, -3, "copper"), (3.2, 1.6, 1.6, 8, -4, "copper")])
-def bms_2s():
-    return small_board("bms_2s_protection", 36, 8, "pcb_blue", [(3, 3, 1, -8, 0, "black"), (5, 6, 1.6, 2, 0, "black"), (5, 6, 1.6, 9, 0, "black")])
-def charger_2s_usbc():
-    """Origin: board centre; the USB-C socket points toward -X."""
-    return small_board("charger_2s_usb_c", 26, 17, "pcb_red", [(7.4, 8.9, 3.2, -9.6, 0, "steel"), (5, 5, 3, 3, 0, "dark"), (3, 3, 1, 9, 4, "black"), (1.2, 1.2, 0.8, 9, -5, "white")])
-def rocker_switch():
-    """Origin: centre of the bezel back face (panel surface). The rocker sticks out toward -X, the body toward +X."""
-    body = B(12, 8.6, 13, cx=6, z0=-6.5)
-    bezel = B(2, 10.5, 15, cx=-1, z0=-7.5).edges("|X").fillet(1.2)
-    rock = B(2.4, 6.4, 10.5, cx=-2.6, z0=-5.25).rotate((-2.6, 0, 0), (-2.6, 1, 0), 10)
-    tabs = B(7, 0.6, 3, cx=15.5, z0=-4).union(B(7, 0.6, 3, cx=15.5, z0=1))
-    return asm("rocker_switch", [(body, "black"), (bezel, "black"), (rock, "red"), (tabs, "gold")])
+def tof200f():
+    """Housed laser distance sensor (TOF200F). Origin: board centre, Z=0 underside, lens looks toward +Z, cable socket toward -X."""
+    pcb = B(22, 18, 1.2)
+    for hx in (-8.5, 8.5):
+        for hy in (-6.5, 6.5): pcb = pcb.cut(CZ(2.2, 4, cx=hx, cy=hy, z0=-1))
+    cover = B(12, 10, 3.4, cx=2, z0=1.2).edges("|Z").fillet(1.5)
+    lens = B(7, 3.4, 0.4, cx=2, z0=4.6).edges("|Z").fillet(1.5)
+    sock = B(4.2, 9.5, 3.6, cx=-8.6, z0=-3.6)
+    return asm("distance_sensor_tof200f", [(pcb, "pcb_black"), (cover, "black"), (lens, "glass"), (sock, "white")])
+
+def rocker_round():
+    """Round rocker switch with wire leads (20 mm panel hole). Origin: centre of the bezel back face. Rocker toward -X, body toward +X."""
+    body = CX(19.6, 16, x0=0)
+    bezel = CX(23, 2, x0=-2)
+    rock = CX(15, 2.2, x0=-3.6).rotate((-2.6, 0, 0), (-2.6, 1, 0), 8)
+    tabs = B(7, 0.6, 4.8, cx=19.5, cy=-4, z0=-2.4).union(B(7, 0.6, 4.8, cx=19.5, cy=4, z0=-2.4))
+    return asm("rocker_switch_round", [(body, "black"), (bezel, "black"), (rock, "red"), (tabs, "gold")])
+
+def dc_jack_panel():
+    """Panel DC socket 5.5 x 2.1 with wire leads (8 mm panel hole). Origin: centre of the flange back face. Plug enters from -X."""
+    flange = CX(11, 1.6, x0=-1.6).cut(CX(6.2, 3, x0=-2))
+    barrel = CX(7.8, 14, x0=0)
+    nut = cq.Workplane("YZ").polygon(6, 12.5).extrude(2.2).translate((3.2, 0, 0)).cut(CX(7.8, 4, x0=3))
+    pin = CX(2.0, 9, x0=-1)
+    tails = B(5, 0.5, 2.4, cx=16.5, cy=-2, z0=-1.2).union(B(5, 0.5, 2.4, cx=16.5, cy=2, z0=-1.2))
+    return asm("charging_socket_dc", [(flange, "black"), (barrel, "black"), (nut, "steel"), (pin, "steel"), (tails, "gold")])
+
+def main_board_v02():
+    """Simplified model of the v0.2 main board (placeholder until the routed board is exported from KiCad).
+    Origin: board top-left corner as in KiCad, X right, Y toward -Y (KiCad y is negated), Z=0 underside."""
+    def k(x, y): return (x, -y)
+    pcb = B(100, 70, 1.6, cx=50, cy=-35)
+    for hx in (4, 96):
+        for hy in (4, 66): pcb = pcb.cut(CZ(3.2, 4, cx=hx, cy=-hy, z0=-1))
+    parts = [(pcb, "pcb_green")]
+    sock = None
+    for y in (22.86, 45.72, 48.26):                       # dev board sockets (3 rows of 22)
+        s = B(2.54 * 22, 2.5, 8.5, cx=71.12 - 2.54 * 10.5, cy=-y, z0=1.6)
+        sock = s if sock is None else sock.union(s)
+    parts.append((sock, "black"))
+    def hdr(n, x, y, along="x"):
+        cx = x + (2.54 * (n - 1) / 2 if along == "x" else 0); cy = y + (2.54 * (n - 1) / 2 if along == "y" else 0)
+        for s, col in header(n, along=along):
+            parts.append((s.translate((cx, -cy, 1.6)), col))
+    for i in range(4): hdr(3, 10.16 + 10.16 * i, 5.08)   # edge sensors
+    hdr(4, 50.8, 5.08); hdr(4, 63.5, 5.08)                # eye, spare
+    hdr(8, 55.88, 13.97)                                  # face LCD
+    for i in range(4): hdr(3, 10.16 + 2.54 * i, 58.42, along="y")   # servos
+    hdr(3, 23.5, 63.5); hdr(3, 58.42, 63.5)               # button, fin LED
+    blocks = None; screws = None
+    def term(x, y, right):
+        nonlocal blocks, screws
+        blk = B(7.6, 10.16, 10.0, cx=x, cy=-(y + 2.54), z0=1.6)
+        for d in (0, 5.08):
+            blk = blk.cut(B(4.0, 3.6, 4.2, cx=x + (2.8 if right else -2.8), cy=-(y + d), z0=3.0)).cut(CZ(3.4, 3, cx=x, cy=-(y + d), z0=9.2))
+            sc = CZ(3.0, 0.6, cx=x, cy=-(y + d), z0=8.9); screws = sc if screws is None else screws.union(sc)
+        blocks = blk if blocks is None else blocks.union(blk)
+    for y in (13.97, 26.67, 39.37): term(92.71, y, True)      # battery, charger, switch
+    for y in (20.32, 30.48, 40.64): term(6.35, y, False)      # motor L, motor R, speaker
+    parts += [(blocks, "pcb_blue"), (screws, "steel")]
+    caps = CZ(8, 10.2, cx=70.2, cy=-58.6, z0=1.6).union(CZ(8, 10.2, cx=83.4, cy=-58.6, z0=1.6))
+    parts.append((caps, "steel"))
+    chips = B(5, 4.4, 1.1, cx=26, cy=-34.3, z0=1.6).union(B(3, 3, 0.8, cx=42.5, cy=-34.3, z0=1.6)).union(B(2.9, 1.6, 1.1, cx=40, cy=-58, z0=1.6)).union(B(4.5, 3.2, 1.2, cx=80.6, cy=-20, z0=1.6)).union(B(4.3, 2.6, 2.2, cx=80.6, cy=-44, z0=1.6))
+    parts.append((chips, "black"))
+    parts.append((B(5, 5, 4, cx=46.6, cy=-58.6, z0=1.6), "dark"))
+    parts.append((B(3.5, 2.65, 1.0, cx=27, cy=-14.6, z0=1.6), "steel"))
+    return asm("main_board_v02", parts)
+
+def screw_terminals_v02():
+    """The six 2-pin screw terminals of the v0.2 board (KiCad has no 3D model for them). Same origin as the board."""
+    blocks = screws = None
+    for x, ys, right in ((92.71, (13.97, 26.67, 39.37), True), (6.35, (20.32, 30.48, 40.64), False)):
+        for y in ys:
+            blk = B(7.6, 10.0, 10.0, cx=x, cy=-(y + 2.54), z0=1.6)
+            for d in (0, 5.08):
+                blk = blk.cut(B(4.0, 3.6, 4.2, cx=x + (2.8 if right else -2.8), cy=-(y + d), z0=3.0)).cut(CZ(3.4, 3, cx=x, cy=-(y + d), z0=9.2))
+                sc = CZ(3.0, 0.6, cx=x, cy=-(y + d), z0=8.9); screws = sc if screws is None else screws.union(sc)
+            blocks = blk if blocks is None else blocks.union(blk)
+    return asm("pcb_screw_terminals", [(blocks, "pcb_blue"), (screws, "steel")])

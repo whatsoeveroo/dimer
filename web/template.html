@@ -1,0 +1,345 @@
+<title>Dimer Build Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* layout: one reading column, workshop-sheet feel; the 3D frame and the board are the only wide figures */
+:root{--bg:#eef3f3;--surface:#ffffff;--fg:#17272a;--muted:#55696c;--line:#cfdcdd;--shell:#5f9299;--fin:#cf5c48;--eye:#0f8fa3;--stage:#dfe8e9;
+ --display:"Space Grotesk",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101a1c;--surface:#18262a;--fg:#e4eeef;--muted:#9bb0b3;--line:#2c4044;--shell:#86b8be;--fin:#ef8672;--eye:#5fd8ea;--stage:#1d2e32;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#101a1c;--surface:#18262a;--fg:#e4eeef;--muted:#9bb0b3;--line:#2c4044;--shell:#86b8be;--fin:#ef8672;--eye:#5fd8ea;--stage:#1d2e32;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 var(--body)}
+.wrap{max-width:980px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(34px,6vw,54px);letter-spacing:-.02em}
+h2{font-size:26px}
+h3{font-size:17px}
+p{margin:0;max-width:66ch}
+a{color:var(--eye)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--fin);outline-offset:2px}
+section{display:flex;flex-direction:column;gap:18px}
+.eyebrow{font:500 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--fin)}
+.lede{font-size:19px;color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;border-block:1px solid var(--line)}
+.facts div{padding:14px 0;display:flex;flex-direction:column;gap:2px}
+.facts b{font:700 22px var(--display);font-variant-numeric:tabular-nums}
+.facts span{font-size:13px;color:var(--muted)}
+ol.todo{margin:0;padding:0;list-style:none;counter-reset:t;display:flex;flex-direction:column;gap:12px}
+ol.todo li{counter-increment:t;display:grid;grid-template-columns:34px 1fr;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+ol.todo li::before{content:counter(t);font:700 20px var(--display);color:var(--fin)}
+ol.todo li div{min-width:0}
+.stage{background:var(--stage);border:1px solid var(--line);border-radius:6px;overflow:hidden;position:relative}
+#view{display:block;width:100%;height:min(62vw,520px);touch-action:none;cursor:grab}
+.bar{display:flex;flex-wrap:wrap;gap:8px;padding:10px 12px;border-top:1px solid var(--line);align-items:center;font-size:13px;color:var(--muted)}
+button{font:500 13px var(--body);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:6px 12px;cursor:pointer}
+button[aria-pressed="true"]{background:var(--shell);color:var(--bg);border-color:var(--shell)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.grp{font:500 12px var(--mono);color:var(--shell);white-space:nowrap}
+.why{display:block;color:var(--muted);font-size:13px}
+.mono{font:13px var(--mono);color:var(--muted)}
+.pcb{background:#fff;border:1px solid var(--line);border-radius:6px;padding:8px}
+.pcb img{display:block;width:100%;height:auto}
+ul.plain{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:68ch}
+ol.days{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+ol.days li{display:grid;grid-template-columns:150px 110px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.date{font:13px var(--mono);color:var(--muted)}
+.phase{font:700 15px var(--display);color:var(--shell)}
+.what{min-width:0}
+@media (max-width:640px){ol.days li{grid-template-columns:1fr;gap:2px}}
+.note{border-left:3px solid var(--fin);padding:4px 0 4px 14px;color:var(--muted);max-width:66ch}
+.files{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.files a{display:block;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px;text-decoration:none;color:var(--fg)}
+.files a b{display:block;font-family:var(--display)}
+.files a span{font-size:13px;color:var(--muted)}
+pre.mermaid{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto;margin:0}
+
+/* v0.2 additions: step player, part chips, board map */
+.player{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:12px;border-top:1px solid var(--line);background:var(--surface)}
+.player .txt{min-width:0;display:flex;flex-direction:column;gap:2px}
+.player .txt b{font-family:var(--display);font-size:16px}
+.player .txt span{font-size:13px;color:var(--muted)}
+.player .txt .k{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--fin)}
+.player button{padding:10px 14px}
+button:disabled{opacity:.4;cursor:default}
+.parts{display:flex;flex-direction:column;gap:8px;padding:12px;border-top:1px solid var(--line)}
+.pgroup{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pg{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);min-width:104px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:4px 9px;cursor:pointer}
+.chip input{accent-color:var(--shell);margin:0}
+.chip:has(input:not(:checked)){color:var(--muted);background:transparent}
+.chip:focus-within{outline:2px solid var(--fin);outline-offset:2px}
+.steps{display:flex;flex-direction:column;gap:8px}
+details.step{background:var(--surface);border:1px solid var(--line);border-radius:6px}
+details.step.cur{border-color:var(--fin)}
+details.step summary{display:grid;grid-template-columns:34px 1fr;gap:12px;padding:12px 16px;cursor:pointer;list-style:none}
+details.step summary::-webkit-details-marker{display:none}
+details.step .n{font:700 20px var(--display);color:var(--fin);font-variant-numeric:tabular-nums}
+details.step .t{display:flex;flex-direction:column;gap:2px;min-width:0}
+details.step .t b{font-family:var(--display);font-size:17px}
+details.step .t span{color:var(--muted);font-size:14px}
+details.step ul{margin:0;padding:0 16px 4px 80px;display:flex;flex-direction:column;gap:8px;max-width:76ch}
+details.step .see{margin:10px 16px 14px 62px}
+@media (max-width:640px){details.step ul{padding-left:36px}details.step .see{margin-left:16px}.player{grid-template-columns:1fr 1fr}.player .txt{grid-column:1/-1;order:-1}.pg{min-width:100%}}
+.ok{display:block;font:12px var(--mono);color:var(--shell)}
+.board{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px;overflow-x:auto}
+.board svg{display:block;width:100%;min-width:560px;height:auto}
+.board .bd{fill:var(--shell);fill-opacity:.22;stroke:var(--shell);stroke-width:3}
+.board .hole{fill:var(--bg);stroke:var(--shell);stroke-width:2}
+.board .hd{fill:var(--fg)}
+.board .hd.dim{fill:var(--muted);fill-opacity:.45}
+.board .sk{fill:var(--fg);fill-opacity:.8}
+.board .esp{fill:var(--surface);fill-opacity:.92;stroke:var(--fg);stroke-width:2;stroke-dasharray:8 6}
+.board .tb{fill:var(--eye)}
+.board .scr{fill:var(--surface);stroke:var(--fg);stroke-width:2}
+.board .cap{fill:var(--muted);fill-opacity:.35;stroke:var(--muted);stroke-width:2}
+.board .mic{fill:var(--fin)}
+.board text{font-family:var(--mono);fill:var(--fg)}
+.board .lb{font-size:15px}
+.board .dimt{fill:var(--muted)}
+.board .big{font-family:var(--display);font-size:22px;font-weight:700}
+.board .out{font-size:19px;font-weight:500}
+.board .pm{font-size:20px;font-weight:700}
+.status{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.status div{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.status b{font-family:var(--display)}
+.status span{font-size:14px;color:var(--muted)}
+.status .tag{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.status .tag.done{color:var(--shell)}
+.status .tag.wait{color:var(--fin)}
+</style>
+<div class="wrap">
+<header style="display:flex;flex-direction:column;gap:18px">
+  <span class="eyebrow">Tabletop pet robot · build sheet v0.2 · no soldering</span>
+  <h1>Dimer build plan</h1>
+  <p class="lede">A tracked pet robot under 20 cm that turns its head to look around, stops at the table edge, pushes things with a shovel, and listens when you talk. You design how it looks. This page covers everything inside, and how to put it together with a screwdriver and no soldering iron.</p>
+  <div class="facts">
+    <div><b>197 × 144 × 126 mm</b><span>guideline size, before your shell and fin</span></div>
+    <div><b>about ₩90,000</b><span>AliExpress parts, prices seen 16 Nov</span></div>
+    <div><b>0 solder joints</b><span>the board arrives built, parts arrive wired</span></div>
+    <div><b>{{NSTEPS}} steps</b><span>from empty tub to first power-on and tracks</span></div>
+  </div>
+</header>
+
+<section>
+  <span class="eyebrow">Where things stand</span>
+  <h2>What changed in v0.2</h2>
+  <div class="status">
+    <div><span class="tag done">Done</span><b>Buying list</b><span>Every link opens one product from one seller, checked on AliExpress on 16 November. Parts that needed soldering are gone.</span></div>
+    <div><span class="tag done">Done</span><b>Assembly guide</b><span>The steps are below. Each one can be shown in the 3D view, and every part can be hidden or shown.</span></div>
+    <div><span class="tag done">Done</span><b>Frame guideline</b><span>Updated for the round switch, the charging socket and the new distance sensor. Still a rough skeleton.</span></div>
+    <div><span class="tag done">Ready to order</span><b>Main board files</b><span>The v0.2 board is routed and passes the rule check with no spacing errors and nothing left unconnected. <a href="https://github.com/whatsoeveroo/dimer/blob/claude/project-thread-sb5gqx/docs/JLCPCB.md">Ordering steps for JLCPCB</a>. It has not been built yet, so order with the engineer placement check switched on.</span></div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">How it works</span>
+  <h2>What is inside</h2>
+  <p>One small computer, the ESP32-S3, runs everything. It plugs into the custom board. The motor driver, speaker amplifier, microphone and 5 V converter are chips on that board, fitted at the factory. Everything else plugs into a labelled connector or clamps into a screw terminal.</p>
+<pre class="mermaid">
+flowchart LR
+  CHG[8.4 V charger] --> JACK[Charging socket] --> BAT[2 protected cells 7.4 V]
+  BAT --> SW[Switch, fuse, diode]
+  subgraph BOARD[Main board, built by JLCPCB]
+    BUCK[5 V converter]
+    DRV[Motor driver]
+    AMP[Amplifier]
+    MIC[Microphone]
+    ESP[ESP32-S3 brain, plugged in]
+  end
+  SW --> BUCK --> ESP
+  SW --> DRV --> M[Two track motors]
+  BUCK --> SRV[Servos: head, shovel]
+  ESP --> DRV
+  ESP --> SRV
+  ESP --> LCD[Face display]
+  EDGE[4 table-edge sensors] --> ESP
+  TOF[Distance sensor in head] --> ESP
+  MIC --> ESP
+  ESP --> AMP --> SPK[Speaker]
+  ESP <-- Wi-Fi --> AI[OpenAI API: hear, think, speak]
+</pre>
+</section>
+
+<section id="view-section">
+  <span class="eyebrow">Mechanical</span>
+  <h2>Frame and parts in 3D</h2>
+  <p>Drag to rotate, scroll or pinch to zoom. Step through the build with the arrows, or tick parts on and off to see what sits behind them.</p>
+  <div class="stage">
+    <canvas id="view" aria-label="3D view of the Dimer frame and parts"></canvas>
+    <div class="player">
+      <button id="b-prev" aria-label="Previous step">← Back</button>
+      <div class="txt"><span class="k" id="p-k">All parts</span><b id="p-t">Finished inside, without your shell</b><span id="p-s">Press Next to build it up one step at a time.</span></div>
+      <button id="b-next" aria-label="Next step">Next →</button>
+    </div>
+    <div class="bar">
+      <button id="b-all">Show all</button>
+      <button id="b-none">Hide all</button>
+      <button id="b-frame" aria-pressed="true">Printed frame</button>
+      <button id="b-parts" aria-pressed="true">Bought parts</button>
+      <button id="b-reset">Reset view</button>
+      <span id="fallback" hidden>The 3D view could not load. The assembly steps below still work as text.</span>
+    </div>
+    <div class="parts" id="parts">{{PARTS_HTML}}</div>
+  </div>
+  <ul class="plain">
+    <li><strong>Chassis tub:</strong> holds the motors, battery and main board. Four ears on top for bolting your shell on, a tab at each corner for an edge sensor, and two round holes in the rear wall for the switch and the charging socket.</li>
+    <li><strong>Neck bridge:</strong> holds the servo that turns the head.</li>
+    <li><strong>Head box:</strong> a 46 × 72 × 62 mm placeholder with a window for the display and a smaller one for the distance sensor. Replace it with your own head.</li>
+    <li><strong>Shovel:</strong> two arms and a blade, lifted by one servo on the left wall.</li>
+  </ul>
+  <p class="note">The bought parts are drawn from typical seller dimensions, and the main board is the real routed board exported from KiCad. Track and wheel sizes are placeholders. Measure the parts that arrive before final fits.</p>
+</section>
+
+<section id="assembly">
+  <span class="eyebrow">Assembly</span>
+  <h2>Putting it together, step by step</h2>
+  <p>Tap a step to open or close it. The battery cells go in last. Nothing here needs solder: wires either push onto pins or clamp under a screw.</p>
+  <div class="steps">
+{{STEPS_HTML}}
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Electronics</span>
+  <h2>Where everything plugs in</h2>
+  <p>The main board seen from above, in the direction it sits in the robot. Blue blocks are screw terminals, dark strips are pins for plug-in wires. Greyed plugs are spare, for a button, a fin light or a head tilt servo later.</p>
+  <div class="board">{{BOARD_SVG}}</div>
+  <div class="scroll"><table><thead><tr><th>Label on board</th><th>What connects</th><th>How</th></tr></thead><tbody>
+  <tr><td><strong>MOTOR L / MOTOR R</strong></td><td>The two motor wires of each track motor</td><td>Screw terminal</td></tr>
+  <tr><td><strong>SPEAKER</strong></td><td>Speaker, two wires, either way round</td><td>Screw terminal</td></tr>
+  <tr><td><strong>BATTERY</strong></td><td>Battery holder. Red to +, black to −</td><td>Screw terminal</td></tr>
+  <tr><td><strong>CHARGER</strong></td><td>Charging socket. Red to +, black to −</td><td>Screw terminal</td></tr>
+  <tr><td><strong>SWITCH</strong></td><td>Power switch, two wires, either way round</td><td>Screw terminal</td></tr>
+  <tr><td><strong>EDGE FL / FR / RL / RR</strong></td><td>Table-edge sensors. Pins printed <span class="mono">3V3, GND, DO</span></td><td>3 jumper wires each</td></tr>
+  <tr><td><strong>EYE</strong></td><td>Distance sensor. Pins printed <span class="mono">3V3, GND, SCL, SDA</span></td><td>The sensor's own cable</td></tr>
+  <tr><td><strong>FACE LCD</strong></td><td>Display. Pins printed <span class="mono">GND, VCC, SCL, SDA, RES, DC, CS, BLK</span>, same order as the display</td><td>8 jumper wires</td></tr>
+  <tr><td><strong>SERVOS</strong></td><td>Head servo on PAN, shovel servo on SHVL. Rows printed <span class="mono">SIG, 5V, GND</span></td><td>Servo plug fits directly</td></tr>
+  <tr><td><strong>Socket rows</strong></td><td>ESP32-S3 board, USB end to the rear</td><td>Push in</td></tr>
+  </tbody></table></div>
+  <ul class="plain">
+    <li><strong>Fitted at the factory:</strong> motor driver (DRV8833), speaker amplifier (MAX98357A), microphone (ICS-43434), 5 V 3 A converter, fuse, reverse-polarity diode, and every connector. JLCPCB solders all of it.</li>
+    <li><strong>Checked:</strong> KiCad's rule check shows 0 spacing errors and 0 unconnected pins. Tracks are 0.25 mm or wider and holes 0.3 mm or larger, inside JLCPCB's limits. The remaining rule-check notes are printed outlines of neighbouring connectors touching, which is intended.</li>
+    <li><strong>Not checked:</strong> nobody has built or powered this board. The part directions in the placement file are my best reading of JLCPCB's conventions, which is why the order should include their engineer check of parts placement.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="eyebrow">Shopping</span>
+  <h2>Buying list</h2>
+  <p>Each link opens one product page from one seller. I opened every page on 16 November and the prices are what it showed that day in won. Where a page has several options, click the one in the Option column.</p>
+  <div class="scroll"><table><thead><tr><th>Group</th><th>Part</th><th>Option to pick</th><th class="num">Order</th><th class="num">Price seen</th><th>Link</th></tr></thead><tbody>
+{{BUY_ROWS}}
+<tr><td></td><td><strong>AliExpress total</strong><span class="why">before shipping and coupons</span></td><td></td><td></td><td class="num"><strong>about ₩90,000</strong></td><td></td></tr>
+<tr><td class="grp">Local</td><td><strong>18650 Li-ion cells, protected type, name brand</strong><span class="why">Buy in Korea. Must say protected, because the cell's own circuit now does the job of the old protection board.</span></td><td></td><td class="num">2</td><td class="num">about ₩12,000</td><td>Korean shop</td></tr>
+<tr><td class="grp">Board</td><td><strong>Dimer main board v0.2, built by JLCPCB</strong><span class="why">5 boards, 2 of them with parts fitted. My guess only. JLCPCB shows the real price when the files are uploaded.</span></td><td></td><td class="num">1</td><td class="num">₩70,000 to ₩110,000</td><td><a href="https://jlcpcb.com">JLCPCB</a></td></tr>
+<tr><td></td><td><strong>Whole robot</strong><span class="why">the v0.1 list with soldering was about ₩225,000</span></td><td></td><td></td><td class="num"><strong>₩170,000 to ₩210,000</strong></td><td></td></tr>
+</tbody></table></div>
+  <p class="note">Do not order tracks yet. Both sets have wheels with 4 mm holes and the motor shaft is 3 mm. Pick the look you like and I either add a printed sleeve or find a set that fits.</p>
+  <ul class="plain">
+    <li><strong>Cut from v0.1:</strong> motor driver, amplifier, microphone and converter modules (now chips on the board), protection board and USB-C charger module (replaced by protected cells and a wall charger), loose connectors, resistor and capacitor kits, silicone wire, heat-set inserts, soldering iron, multimeter, tilt sensor, LED strip and touch sensor.</li>
+    <li><strong>Protected cells are 3 to 4 mm longer</strong> than bare ones and can be tight in some holders. If they do not fit, tell me the cell length.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="eyebrow">Files</span>
+  <h2>Everything is in the GitHub repo</h2>
+  <div class="files">
+    <a href="https://github.com/whatsoeveroo/dimer/blob/claude/project-thread-sb5gqx/docs/JLCPCB.md"><b>docs/JLCPCB.md</b><span>How to order the built board, click by click, and which three files to upload.</span></a>
+    <a href="https://github.com/whatsoeveroo/dimer/tree/claude/project-thread-sb5gqx/pcb"><b>pcb/</b><span>Gerber zip, parts list and placement file for JLCPCB, plus the KiCad board.</span></a>
+    <a href="https://github.com/whatsoeveroo/dimer/pull/1"><b>Pull request #1</b><span>The v0.2 update lives here until it is merged.</span></a>
+    <a href="https://github.com/whatsoeveroo/dimer/blob/claude/project-thread-sb5gqx/docs/ASSEMBLY.md"><b>docs/ASSEMBLY.md</b><span>The assembly steps as a plain document to keep open on the bench.</span></a>
+    <a href="https://github.com/whatsoeveroo/dimer/blob/claude/project-thread-sb5gqx/docs/BOM.md"><b>docs/BOM.md</b><span>The buying list as a table.</span></a>
+    <a href="https://github.com/whatsoeveroo/dimer/tree/claude/project-thread-sb5gqx/cad/step"><b>cad/step/</b><span>Frame STEP files, the full assembly, and one file per bought part.</span></a>
+    <a href="https://github.com/whatsoeveroo/dimer/blob/claude/project-thread-sb5gqx/cad/dimer_frame.py"><b>cad/dimer_frame.py</b><span>The script that generates the frame. Sizes are at the top.</span></a>
+    <a href="https://github.com/whatsoeveroo/dimer/blob/claude/project-thread-sb5gqx/firmware/dimer_pins.h"><b>firmware/dimer_pins.h</b><span>Which brain pin does what, for the code later.</span></a>
+  </div>
+</section>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  var STEPS = {{STEPS_JSON}};
+  var MESH = {{MESH_JSON}};
+  var cv = document.getElementById('view');
+  function $(id){ return document.getElementById(id); }
+  if (!window.THREE) { $('fallback').hidden = false; return; }
+  var r; try { r = new THREE.WebGLRenderer({canvas: cv, antialias: true, alpha: true}); } catch (e) { $('fallback').hidden = false; return; }
+  r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  var scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(32, 1, 1, 5000); cam.up.set(0, 0, 1);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x556066, 0.85));
+  var dl = new THREE.DirectionalLight(0xffffff, 0.7); dl.position.set(150, -200, 300); scene.add(dl);
+  var groups = {};
+  MESH.forEach(function(m){
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(m.v, 3)); g.setIndex(m.t); g.computeVertexNormals();
+    var mat = new THREE.MeshStandardMaterial({color: new THREE.Color(m.color[0], m.color[1], m.color[2]), roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide, flatShading: true});
+    if (!groups[m.name]) { groups[m.name] = new THREE.Group(); scene.add(groups[m.name]); }
+    groups[m.name].add(new THREE.Mesh(g, mat));
+  });
+  var grid = new THREE.GridHelper(400, 20, 0x8aa0a3, 0x8aa0a3); grid.rotation.x = Math.PI / 2; grid.material.opacity = 0.35; grid.material.transparent = true; scene.add(grid);
+  var az, el, dist, target = new THREE.Vector3(5, 0, 50);
+  function reset(){ az = -0.95; el = 0.42; dist = 520; }
+  reset();
+  function place(){ cam.position.set(target.x + dist * Math.cos(el) * Math.cos(az), target.y + dist * Math.cos(el) * Math.sin(az), target.z + dist * Math.sin(el)); cam.lookAt(target); }
+  function size(){ var w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) return; r.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); draw(); }
+  function draw(){ place(); r.render(scene, cam); }
+  var pts = {}, last = null, pinch = 0;
+  cv.addEventListener('pointerdown', function(e){ cv.setPointerCapture(e.pointerId); pts[e.pointerId] = [e.clientX, e.clientY]; last = [e.clientX, e.clientY]; pinch = 0; });
+  cv.addEventListener('pointermove', function(e){
+    if (!pts[e.pointerId]) return; pts[e.pointerId] = [e.clientX, e.clientY];
+    var ids = Object.keys(pts);
+    if (ids.length === 2) { var a = pts[ids[0]], b = pts[ids[1]], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) dist = Math.max(180, Math.min(1200, dist * pinch / d)); pinch = d; }
+    else if (last) { az -= (e.clientX - last[0]) * 0.008; el = Math.max(-0.2, Math.min(1.5, el + (e.clientY - last[1]) * 0.008)); last = [e.clientX, e.clientY]; }
+    draw();
+  });
+  function up(e){ delete pts[e.pointerId]; last = null; pinch = 0; }
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('wheel', function(e){ e.preventDefault(); dist = Math.max(180, Math.min(1200, dist * (e.deltaY > 0 ? 1.1 : 0.9))); draw(); }, {passive: false});
+
+  // show / hide single parts
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('#parts input'));
+  function glow(name, on){ var g = groups[name]; if (!g) return; g.children.forEach(function(m){ m.material.emissive.setRGB(on ? 0.2 : 0, on ? 0.04 : 0, on ? 0.02 : 0); }); }
+  function setVis(name, on){ if (groups[name]) groups[name].visible = on; var b = $('vis-' + name); if (b) b.checked = on; }
+  function syncButtons(){
+    [['b-frame', true], ['b-parts', false]].forEach(function(p){
+      var any = boxes.some(function(b){ return (b.dataset.part.indexOf('frame_') === 0) === p[1] && b.checked; });
+      $(p[0]).setAttribute('aria-pressed', String(any));
+    });
+  }
+  boxes.forEach(function(b){ b.addEventListener('change', function(){ setVis(b.dataset.part, b.checked); syncButtons(); draw(); }); });
+  function setAll(on, filter){ boxes.forEach(function(b){ if (!filter || filter(b.dataset.part)) setVis(b.dataset.part, on); }); syncButtons(); draw(); }
+  $('b-all').addEventListener('click', function(){ setAll(true); });
+  $('b-none').addEventListener('click', function(){ setAll(false); });
+  $('b-frame').addEventListener('click', function(){ setAll(this.getAttribute('aria-pressed') !== 'true', function(n){ return n.indexOf('frame_') === 0; }); });
+  $('b-parts').addEventListener('click', function(){ setAll(this.getAttribute('aria-pressed') !== 'true', function(n){ return n.indexOf('part_') === 0; }); });
+  $('b-reset').addEventListener('click', function(){ reset(); draw(); });
+
+  // step player: -1 shows everything, 0..N builds up
+  var cur = -1, N = STEPS.length - 1;
+  function show(i){
+    cur = Math.max(-1, Math.min(N, i));
+    var seen = {}, now = {};
+    for (var k = 0; k <= cur; k++) STEPS[k].add.forEach(function(n){ seen[n] = 1; if (k === cur) now[n] = 1; });
+    boxes.forEach(function(b){ var n = b.dataset.part; setVis(n, cur < 0 ? true : !!seen[n]); glow(n, cur > 0 && !!now[n]); });
+    if (cur >= 0) { var c = STEPS[cur].cam; az = c[0]; el = c[1]; dist = c[2]; } else reset();
+    $('p-k').textContent = cur < 0 ? 'All parts' : 'Step ' + cur + ' of ' + N;
+    $('p-t').textContent = cur < 0 ? 'Finished inside, without your shell' : STEPS[cur].title;
+    $('p-s').textContent = cur < 0 ? 'Press Next to build it up one step at a time.' : STEPS[cur].summary + (STEPS[cur].add.length ? '' : ' No new part appears in this step.');
+    $('b-prev').disabled = cur < 0; $('b-next').disabled = cur >= N;
+    Array.prototype.forEach.call(document.querySelectorAll('details.step'), function(d, j){ d.classList.toggle('cur', j === cur); });
+    syncButtons(); draw();
+  }
+  $('b-prev').addEventListener('click', function(){ show(cur - 1); });
+  $('b-next').addEventListener('click', function(){ show(cur + 1); });
+  Array.prototype.forEach.call(document.querySelectorAll('button.see'), function(b){
+    b.addEventListener('click', function(){ show(parseInt(b.dataset.step, 10)); $('view-section').scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}); });
+  });
+  window.__dimerStep = show;
+  window.addEventListener('resize', size); size(); show(-1);
+})();
+</script>

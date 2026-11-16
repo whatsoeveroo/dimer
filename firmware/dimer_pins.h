@@ -1,4 +1,4 @@
-// Dimer main board v0.1 - pin map for ESP32-S3-DevKitC-1 (N16R8)
+// Dimer main board v0.2 - pin map for ESP32-S3-DevKitC-1 (N16R8)
 // Matches pcb/make_board.py. GPIO numbers, not header positions.
 #pragma once
 
@@ -29,10 +29,10 @@
 // Audio (I2S). Microphone and amplifier share the two clock lines.
 #define PIN_I2S_BCLK 15
 #define PIN_I2S_WS   16
-#define PIN_I2S_DOUT 17   // to MAX98357A DIN (speaker)
-#define PIN_I2S_DIN  18   // from INMP441 SD (microphone)
+#define PIN_I2S_DOUT 17   // to the on-board MAX98357A (speaker)
+#define PIN_I2S_DIN  18   // from the on-board ICS-43434 microphone
 
-// I2C bus (distance sensor VL53L0X, optional MPU6050)
+// EYE plug: TOF200F distance sensor (I2C, or UART on the same two pins), optional MPU6050 on the spare plug
 #define PIN_I2C_SDA 8
 #define PIN_I2C_SCL 9
 
