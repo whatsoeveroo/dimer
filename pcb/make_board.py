@@ -1,25 +1,25 @@
-"""Dimer main board generator (KiCad 7 pcbnew scripting).
+"""Dimer main board v0.2 generator (KiCad 7 pcbnew scripting + freerouting).
 
-Run:  python3 pcb/make_board.py        (needs KiCad 7+, shapely, numpy)
-Writes pcb/dimer_main.kicad_pcb, a DRC report and JLCPCB-ready Gerbers.
+Run:  python3 pcb/make_board.py        (needs KiCad 7, java, xvfb-run and
+      freerouting-1.9.0.jar; set FREEROUTING=/path/to/jar)
+Writes pcb/dimer_main.kicad_pcb, a DRC report, Gerbers and the JLCPCB
+assembly files (BOM + CPL), so JLCPCB solders every part on the board.
 
-The board is a through-hole "hub": the ESP32-S3 dev board plugs into sockets
-and every other part of the robot plugs into a labelled pin header.
+v0.2 is the "no soldering" board: the motor driver, speaker amplifier,
+5 V converter and microphone are chips on the board, and every connector is
+fitted by JLCPCB.  The ESP32-S3 dev board plugs into sockets, everything
+else plugs in or goes under a screw terminal.
 """
-import sys, os, math, heapq, zipfile, glob, shutil
+import sys, os, math, zipfile, glob, shutil, subprocess, re, csv
 sys.path.insert(0, "/usr/lib/python3/dist-packages")
-import numpy as np, shapely
-from shapely.geometry import Point, LineString, Polygon, box as sbox
-from shapely.ops import unary_union
 import pcbnew
 from pcbnew import FromMM, ToMM, VECTOR2I
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIB = "/usr/share/kicad/footprints/"
 W, H = 100.0, 70.0
-G = 0.635                      # routing grid
-CLR = 0.25                     # router clearance (design rule is 0.20)
-VIA_D, VIA_DRILL = 0.8, 0.4
+VIA_D, VIA_DRILL = 0.7, 0.3
+LCSC = {}                      # ref -> (LCSC part number, comment)
 HDR = "Connector_PinHeader_2.54mm.pretty"
 SOCK = "Connector_PinSocket_2.54mm.pretty"
 
@@ -94,230 +94,223 @@ HOLES = [(4, 4), (W - 4, 4), (4, H - 4), (W - 4, H - 4)]
 for i, (x, y) in enumerate(HOLES):
     place("MountingHole.pretty", "MountingHole_3.2mm_M3", "H%d" % (i + 1), "M3", (x, y))
 
+
+def smd(lib, name, ref, value, x, y, rot, padnets, lcsc):
+    """Surface-mount part centred at x, y."""
+    fp = pcbnew.FootprintLoad(LIB + lib, name)
+    fp.SetPosition(P(x, y)); fp.SetOrientationDegrees(rot)
+    fp.SetReference(ref); fp.SetValue(value)
+    fp.Reference().SetVisible(False); fp.Value().SetVisible(False)
+    board.Add(fp)
+    for p in fp.Pads():
+        n = padnets.get(p.GetNumber())
+        if n: p.SetNet(net(n))
+    LCSC[ref] = (lcsc, value)
+    return fp
+R0603 = ("Resistor_SMD.pretty", "R_0603_1608Metric")
+C0603 = ("Capacitor_SMD.pretty", "C_0603_1608Metric")
+C0805 = ("Capacitor_SMD.pretty", "C_0805_2012Metric")
+def res(ref, val, x, y, rot, a, b, lcsc): return smd(*R0603, ref, val, x, y, rot, {"1": a, "2": b}, lcsc)
+def cap(ref, val, x, y, rot, a, b, lcsc="C14663", big=False): return smd(*(C0805 if big else C0603), ref, val, x, y, rot, {"1": a, "2": b}, lcsc)
+C10U = dict(lcsc="C15850", big=True)
+
 # ---------------- ESP32-S3-DevKitC-1 sockets ----------------
 J1 = ["3V3", "3V3", "RST", "LCD_CS", "LCD_DC", "LCD_MOSI", "LCD_SCK", "I2S_BCLK", "I2S_WS", "I2S_DOUT", "I2S_DIN",
       "I2C_SDA", None, None, "I2C_SCL", "VBAT_SENSE", "EDGE_FL", "EDGE_FR", "EDGE_RL", "EDGE_RR", "5V", "GND"]
 J1_GPIO = ["3V3", "3V3", "RST", "4", "5", "6", "7", "15", "16", "17", "18", "8", "3", "46", "9", "10", "11", "12", "13", "14", "5V", "GND"]
-J3 = ["GND", "UART_TX", "UART_RX", "BTN", "LED_DATA", "MOT_AIN1", "MOT_AIN2", "MOT_BIN1", "MOT_BIN2", "SERVO_SHOVEL",
+J3 = ["GND", None, None, "BTN", "LED_DATA", "MOT_AIN1", "MOT_AIN2", "MOT_BIN1", "MOT_BIN2", "SERVO_SHOVEL",
       None, None, None, None, None, "SERVO_AUX", "SERVO_PAN", "SERVO_TILT", None, None, "GND", "GND"]
 J3_GPIO = ["GND", "43", "44", "1", "2", "42", "41", "40", "39", "38", "37", "36", "35", "0", "45", "48", "47", "21", "20", "19", "GND", "GND"]
 X1, YA, YB, YB2 = 71.12, 22.86, 45.72, 48.26     # pin 1 x, J1 row, J3 row (22.86 pitch), J3 row (25.40 pitch)
 def devrow(ref, y, sig):
-    return place(SOCK, "PinSocket_1x22_P2.54mm_Vertical", ref, "ESP32-S3-DevKitC-1", (X1, y), (X1 - 2.54 * 21, y), {str(i + 1): s for i, s in enumerate(sig)})
+    LCSC[ref] = ("C2886702", "Socket 1x22 2.54mm")
+    return place(SOCK, "PinSocket_1x22_P2.54mm_Vertical", ref, "Socket 1x22 2.54mm", (X1, y), (X1 - 2.54 * 21, y), {str(i + 1): s for i, s in enumerate(sig)})
 devrow("U1A", YA, J1); devrow("U1B", YB, J3); devrow("U1C", YB2, J3)
 for i in range(22):
     x = X1 - 2.54 * i
     text(J1_GPIO[i], x, YA + 1.9 + 0.48 * len(J1_GPIO[i]), angle=90)
     text(J3_GPIO[i], x, YB - 1.9 - 0.48 * len(J3_GPIO[i]), angle=90)
-text("ESP32-S3-DevKitC-1  (N16R8)", 55.0, 33.8, size=1.5, thick=0.2)
-text("USB end", 13.0, 33.8, size=1.1); text("antenna end", 66.0, 38.6, size=1.1)
-text("narrow board: inner row / wide board: outer row", 44.45, 50.6, size=0.9)
+text("ESP32-S3 DEV BOARD: USB END", 31.0, 50.5, size=0.9); text("ANTENNA END", 65.0, 50.5, size=0.9)
 
-# ---------------- top strip: connectors fed from J1 ----------------
+HLCSC = {2: "C124375", 3: "C49257", 4: "C124378", 8: "C124381"}
+_header = header
+def header(ref, value, x, y, names, signals, **kw):
+    LCSC[ref] = (HLCSC[len(names)], "Pin header 1x%d 2.54mm" % len(names))
+    return _header(ref, "Pin header 1x%d 2.54mm" % len(names), x, y, names, signals, **kw)
+
+# ---------------- top strip: plugs fed from J1 ----------------
 ya, yb = 5.08, 13.97
 for i, nm in enumerate(["FL", "FR", "RL", "RR"]):
     header("J%d" % (10 + i), "EDGE_" + nm, 10.16 + 10.16 * i, ya, ["3V3", "GND", "DO"], ["3V3", "GND", "EDGE_" + nm], title="EDGE " + nm)
-header("J14", "I2C_A", 50.8, ya, ["3V3", "GND", "SCL", "SDA"], ["3V3", "GND", "I2C_SCL", "I2C_SDA"], title="I2C A")
-header("J15", "I2C_B", 63.5, ya, ["3V3", "GND", "SCL", "SDA"], ["3V3", "GND", "I2C_SCL", "I2C_SDA"], title="I2C B")
-header("J16", "MIC_INMP441", 12.7, yb, ["3V3", "GND", "SCK", "WS", "SD", "L/R"], ["3V3", "GND", "I2S_BCLK", "I2S_WS", "I2S_DIN", "GND"], title="MIC")
-header("J17", "AMP_MAX98357", 35.56, yb, ["5V", "GND", "BCLK", "LRC", "DIN"], ["5V", "GND", "I2S_BCLK", "I2S_WS", "I2S_DOUT"], title="SPEAKER AMP")
+header("J14", "I2C_A", 50.8, ya, ["3V3", "GND", "SCL", "SDA"], ["3V3", "GND", "I2C_SCL", "I2C_SDA"], title="EYE (I2C)")
+header("J15", "I2C_B", 63.5, ya, ["3V3", "GND", "SCL", "SDA"], ["3V3", "GND", "I2C_SCL", "I2C_SDA"], title="I2C SPARE")
 header("J18", "LCD_ST7789", 55.88, yb, ["GND", "VCC", "SCL", "SDA", "RES", "DC", "CS", "BLK"],
        ["GND", "3V3", "LCD_SCK", "LCD_MOSI", "RST", "LCD_DC", "LCD_CS", "3V3"], title="FACE LCD")
 
-# ---------------- bottom strip: connectors fed from J3 ----------------
+# on-board microphone (I2S, sound hole goes through the board)
+smd("Sensor_Audio.pretty", "InvenSense_ICS-43434-6_3.5x2.65mm", "U5", "ICS-43434", 27.0, 14.6, 0,
+    {"1": "I2S_WS", "2": "GND", "3": "GND", "4": "I2S_BCLK", "5": "3V3", "6": "I2S_DIN"}, "C5656610")
+cap("C9", "100nF", 30.6, 13.4, 90, "3V3", "GND")
+text("MIC", 22.6, 14.6, size=0.9)
+
+# ---------------- bottom strip: plugs fed from J3 ----------------
 y0 = 63.5
 for i, (nm, s) in enumerate([("TILT", "SERVO_TILT"), ("PAN", "SERVO_PAN"), ("AUX", "SERVO_AUX"), ("SHVL", "SERVO_SHOVEL")]):
     x = 10.16 + 2.54 * i
-    place(HDR, "PinHeader_1x03_P2.54mm_Vertical", "J%d" % (20 + i), "SERVO_" + nm, (x, y0 - 5.08), (x, y0), {"1": s, "2": "5V", "3": "GND"})
+    place(HDR, "PinHeader_1x03_P2.54mm_Vertical", "J%d" % (20 + i), "Pin header 1x3 2.54mm", (x, y0 - 5.08), (x, y0), {"1": s, "2": "5V", "3": "GND"})
+    LCSC["J%d" % (20 + i)] = (HLCSC[3], "Pin header 1x3 2.54mm")
     text(nm, x, y0 - 5.08 - 1.9 - 0.48 * len(nm), angle=90)
 for j, nm in enumerate(["SIG", "5V", "GND"]):
     text(nm, 6.6, y0 - 5.08 + 2.54 * j)
 text("SERVOS", 13.97, 67.4)
-header("J24", "BUTTON", 25.4, y0, ["SIG", "GND"], ["BTN", "GND"], label_side=-1, title="BTN")
-header("J25", "MOTOR_DRIVER", 35.56, y0, ["VM", "GND", "3V3", "AIN1", "AIN2", "BIN1", "BIN2"],
-       ["VSW", "GND", "3V3", "MOT_AIN1", "MOT_AIN2", "MOT_BIN1", "MOT_BIN2"], label_side=-1, title="MOTOR DRIVER")
+header("J24", "BUTTON", 23.5, y0, ["3V3", "SIG", "GND"], ["3V3", "BTN", "GND"], label_side=-1, title="BUTTON")
 header("J26", "LED_STRIP", 58.42, y0, ["5V", "DIN", "GND"], ["5V", "LED_DIN", "GND"], label_side=-1, title="FIN LED")
-header("J27", "UART", 68.58, y0, ["3V3", "GND", "TX", "RX"], ["3V3", "GND", "UART_TX", "UART_RX"], label_side=-1, title="UART")
+res("R3", "330R", 60.96, 52.6, 90, "LED_DATA", "LED_DIN", "C23138")
 
-# ---------------- passives ----------------
-RES = ("Resistor_THT.pretty", "R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal")
-place(*RES, "R1", "100k", (43.18, 30.48), (33.02, 30.48), {"1": "VSW", "2": "VBAT_SENSE"}); text("R1 100k", 38.1, 28.3, size=0.9)
-place(*RES, "R2", "47k", (33.02, 36.83), (22.86, 36.83), {"1": "VBAT_SENSE", "2": "GND"}); text("R2 47k", 27.94, 39.0, size=0.9)
-place("Capacitor_THT.pretty", "C_Disc_D5.0mm_W2.5mm_P5.00mm", "C3", "100nF", (27.94, 30.48), (22.94, 30.48), {"1": "VBAT_SENSE", "2": "GND"}); text("C3 100n", 25.4, 28.3, size=0.9)
-place(*RES, "R3", "330R", (55.88, 54.61), (66.04, 54.61), {"1": "LED_DATA", "2": "LED_DIN"}); text("R3 330R", 60.96, 52.5, size=0.9)
+# ---------------- motor driver (under the dev board) ----------------
+smd("Package_SO.pretty", "HTSSOP-16-1EP_4.4x5mm_P0.65mm_EP3.4x5mm_Mask2.46x2.31mm", "U2", "DRV8833PWP", 26.0, 34.3, 0,
+    {"1": "3V3", "2": "MOTL_A", "3": "GND", "4": "MOTL_B", "5": "MOTR_B", "6": "GND", "7": "MOTR_A", "9": "MOT_BIN1", "10": "MOT_BIN2",
+     "11": "DRV_VCP", "12": "VSW", "13": "GND", "14": "DRV_VINT", "15": "MOT_AIN2", "16": "MOT_AIN1", "17": "GND"}, "C50506")
+cap("C4", "10uF 25V", 32.4, 37.2, 90, "VSW", "GND", **C10U)
+cap("C5", "10nF", 31.0, 40.3, 0, "DRV_VCP", "VSW", lcsc="C57112")
+cap("C6", "10uF 25V", 32.4, 31.6, 90, "GND", "DRV_VINT", **C10U)
 
-# ---------------- power strip (right edge) ----------------
+# ---------------- speaker amplifier (under the dev board) ----------------
+smd("Package_DFN_QFN.pretty", "TQFN-16-1EP_3x3mm_P0.5mm_EP1.23x1.23mm", "U3", "MAX98357AETE+T", 42.5, 34.3, 0,
+    {"1": "I2S_DOUT", "3": "GND", "4": "AMP_SD", "7": "5V", "8": "5V", "9": "SPK+", "10": "SPK-", "11": "GND", "14": "I2S_WS", "15": "GND", "16": "I2S_BCLK", "17": "GND"}, "C910544")
+for pn in ("3", "11", "15"):              # tie the amplifier's ground pins to its centre pad
+    pd = [p for p in board.FindFootprintByReference("U3").Pads() if p.GetNumber() == pn][0].GetPosition()
+    px, py = ToMM(pd.x), ToMM(pd.y)
+    t = pcbnew.PCB_TRACK(board); t.SetStart(P(px, py)); t.SetEnd(P(42.5, py) if abs(px - 42.5) > abs(py - 34.3) else P(px, 34.3))
+    t.SetWidth(FromMM(0.25)); t.SetLayer(pcbnew.F_Cu); t.SetNet(net("GND")); board.Add(t)
+cap("C7", "10uF 25V", 42.5, 39.4, 0, "5V", "GND", **C10U)
+cap("C8", "100nF", 46.4, 38.0, 90, "5V", "GND")
+res("R4", "100k", 38.4, 37.6, 90, "AMP_SD", "5V", "C25803")
+
+# ---------------- battery voltage sense ----------------
+res("R1", "100k", 55.0, 31.0, 0, "VSW", "VBAT_SENSE", "C25803")
+res("R2", "47k", 55.0, 34.0, 0, "VBAT_SENSE", "GND", "C25819")
+cap("C3", "100nF", 55.0, 37.0, 0, "VBAT_SENSE", "GND")
+
+# ---------------- 5 V converter (TPS563201, 3 A) ----------------
+smd("Package_TO_SOT_SMD.pretty", "SOT-23-6", "U4", "TPS563201DDCR", 40.0, 58.0, 0,
+    {"1": "GND", "2": "BUCK_SW", "3": "VSW", "4": "BUCK_FB", "5": "BUCK_EN", "6": "BUCK_BST"}, "C116592")
+smd("Inductor_SMD.pretty", "L_Changjiang_FNR5040S", "L1", "3.3uH FNR5040S3R3NT", 46.6, 58.6, 0, {"1": "BUCK_SW", "2": "5V"}, "C167960")
+cap("C10", "10uF 25V", 35.6, 56.6, 90, "VSW", "GND", **C10U)
+cap("C11", "10uF 25V", 33.4, 56.6, 90, "VSW", "GND", **C10U)
+cap("C15", "100nF", 42.6, 54.4, 0, "BUCK_BST", "BUCK_SW")
+cap("C12", "10uF 25V", 51.6, 55.2, 0, "5V", "GND", **C10U)
+cap("C13", "10uF 25V", 51.6, 58.0, 0, "5V", "GND", **C10U)
+cap("C14", "10uF 25V", 51.6, 60.8, 0, "5V", "GND", **C10U)
+res("R5", "56k", 44.4, 63.6, 180, "5V", "BUCK_FB", "C23206")
+res("R6", "10k", 40.6, 63.6, 180, "BUCK_FB", "GND", "C25804")
+res("R7", "100k", 35.6, 61.4, 90, "VSW", "BUCK_EN", "C25803")
+text("5V 3A", 45.0, 66.2, size=0.9)
+CPE = ("Capacitor_SMD.pretty", "CP_Elec_8x10")
+smd(*CPE, "C1", "470uF 16V", 70.2, 58.6, 90, {"1": "5V", "2": "GND"}, "C82006")
+smd(*CPE, "C2", "470uF 16V", 83.4, 58.6, 90, {"1": "VSW", "2": "GND"}, "C82006")
+
+# ---------------- power in (right edge) and outputs (left edge) ----------------
 TB = ("TerminalBlock.pretty", "TerminalBlock_bornier-2_P5.08mm")
+def term(ref, title, x, y, top, bottom, lt, lb, right=True):
+    """2-pin screw terminal, wire opening facing the board edge."""
+    if right: fp = place(*TB, ref, "Screw terminal 2P 5.08mm", (x, y + 5.08), (x, y), {"1": bottom, "2": top})
+    else:     fp = place(*TB, ref, "Screw terminal 2P 5.08mm", (x, y), (x, y + 5.08), {"1": top, "2": bottom})
+    LCSC[ref] = ("C474881", "Screw terminal 2P 5.08mm")
+    lx = x - 5.6 if right else x + 5.6
+    text(lt, lx, y, size=0.9, angle=90); text(lb, lx, y + 5.08, size=0.9, angle=90)
+    text(title, x - 7.6 if right else x + 7.6, y + 2.54, size=0.9, angle=90)
+    return fp
 xt = 92.71
-for ref, val, y, n1, n2, l1, l2 in [("J1", "BATTERY 2S", 13.97, "BAT+", "GND", "BAT+", "GND"), ("J2", "POWER SWITCH", 26.67, "FUSED", "SW_B", "SW", "SW"),
-                                     ("J3", "BUCK IN", 39.37, "VSW", "GND", "VIN+", "GND"), ("J4", "BUCK OUT 5V", 52.07, "5V", "GND", "5V+", "GND")]:
-    place(*TB, ref, val, (xt, y), (xt, y + 5.08), {"1": n1, "2": n2})
-    text(l1, 98.3, y, angle=90); text(l2, 98.3, y + 5.08, angle=90)
-xc = 83.82
-place("Fuse.pretty", "Fuse_Bourns_MF-RHT300", "F1", "PTC 3A", (xc, 19.05), (xc, 24.13), {"1": "BAT+", "2": "FUSED"})
-place("Diode_THT.pretty", "D_DO-201AD_P15.24mm_Horizontal", "D1", "1N5822", (xc, 45.72), (xc, 30.48), {"1": "VSW", "2": "SW_B"})
-place("Capacitor_THT.pretty", "CP_Radial_D8.0mm_P3.50mm", "C2", "220uF 16V", (xc, 50.165), (xc, 53.665), {"1": "VSW", "2": "GND"})
-place("Capacitor_THT.pretty", "CP_Radial_D8.0mm_P3.50mm", "C1", "470uF 16V", (xc, 60.325), (xc, 63.825), {"1": "5V", "2": "GND"})
-text("F1", 79.6, 21.6); text("D1", 79.2, 38.1); text("1N5822", 87.3, 38.1, angle=90, size=0.9)
-text("C2", 78.2, 52.0); text("C1", 78.6, 58.4)
-text("DIMER MAIN v0.1", 83.5, 8.6, size=1.1, thick=0.18)
-text("DIMER MAIN v0.1 - 2S Li-ion 6.0-8.4V in, 5V via external buck", 50, 35, size=1.3, layer=pcbnew.B_SilkS, thick=0.2)
+term("J1", "BATTERY", xt, 13.97, "BAT+", "GND", "+", "-")
+term("J2", "CHARGER", xt, 26.67, "BAT+", "GND", "+", "-")
+term("J3", "SWITCH", xt, 39.37, "FUSED", "SW_B", "", "")
+xl = 6.35
+term("J4", "MOTOR L", xl, 20.32, "MOTL_A", "MOTL_B", "", "", right=False)
+term("J5", "MOTOR R", xl, 30.48, "MOTR_A", "MOTR_B", "", "", right=False)
+term("J6", "SPEAKER", xl, 40.64, "SPK+", "SPK-", "", "", right=False)
+smd("Fuse.pretty", "Fuse_1812_4532Metric", "F1", "PTC 3A 16V", 80.6, 20.0, 90, {"1": "BAT+", "2": "FUSED"}, "C702820")
+smd("Diode_SMD.pretty", "D_SMA", "D1", "SS34", 80.6, 44.0, 90, {"1": "VSW", "2": "SW_B"}, "C8678")
+text("FUSE", 77.0, 20.0, size=0.8, angle=90); text("D1", 77.4, 44.0, size=0.8, angle=90)
+text("DIMER MAIN v0.2", 84.0, 67.6, size=1.0, thick=0.18)
+text("DIMER MAIN v0.2 - 2 x 18650 in (6.0-8.4 V) - assembled by JLCPCB", 50, 35, size=1.2, layer=pcbnew.B_SilkS, thick=0.2)
 
-# ================= router =================
-NX, NY = int(round(W / G)) + 1, int(round(H / G)) + 1
-F, B = pcbnew.F_Cu, pcbnew.B_Cu
-obs = {0: [], 1: []}                      # layer -> [(geom, net)]
-padnodes = {}                              # net -> [(i, j, x, y)]
-for fp in board.GetFootprints():
-    for p in fp.Pads():
-        pos = p.GetPosition(); x, y = ToMM(pos.x), ToMM(pos.y)
-        poly = p.GetEffectivePolygon()
-        if poly.OutlineCount() == 0 or p.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH:        # NPTH hole
-            g = Point(x, y).buffer(ToMM(p.GetDrillSize().x) / 2 + 0.6)
-        else:
-            o = poly.Outline(0)
-            g = Polygon([(ToMM(o.CPoint(k).x), ToMM(o.CPoint(k).y)) for k in range(o.PointCount())]).buffer(0.01)
-        nm = p.GetNetname() or ("~%s.%s" % (fp.GetReference(), p.GetNumber()))
-        obs[0].append((g, nm)); obs[1].append((g, nm))
-        if p.GetNetname():
-            padnodes.setdefault(nm, []).append((int(round(x / G)), int(round(y / G)), x, y))
-
-WIDTH = {"BAT+": 1.5, "FUSED": 1.5, "SW_B": 1.5, "VSW": 1.2, "5V": 1.2, "3V3": 0.6, "GND": 0.8}
-XS, YS = np.meshgrid(np.arange(NX) * G, np.arange(NY) * G, indexing="ij")
-SQ2 = math.sqrt(2)
-MOVES = [(1, 0, 1), (-1, 0, 1), (0, 1, 1), (0, -1, 1), (1, 1, SQ2), (1, -1, SQ2), (-1, 1, SQ2), (-1, -1, SQ2)]
-tracks, vias, failed = [], [], []
-
-def masks(netname, hw):
-    """free-node mask per layer and free-edge masks (sampled along each edge)"""
-    out = {}
-    for l in (0, 1):
-        blk = unary_union([g.buffer(hw + CLR) for g, n in obs[l] if n != netname])
-        shapely.prepare(blk)
-        def free(dx, dy):
-            return ~shapely.contains_xy(blk, XS + dx, YS + dy)
-        node = free(0, 0)
-        m = 2
-        node[:m, :] = False; node[-m:, :] = False; node[:, :m] = False; node[:, -m:] = False
-        edge = {}
-        for dx, dy, _ in MOVES:
-            if (dx, dy) in ((1, 0), (0, 1), (1, 1), (1, -1)):
-                ok = node.copy()
-                for f in (0.25, 0.5, 0.75):
-                    ok &= free(dx * G * f, dy * G * f)
-                edge[(dx, dy)] = ok
-        vblk = unary_union([g.buffer(VIA_D / 2 + CLR) for g, n in obs[l] if n != netname]); shapely.prepare(vblk)
-        out[l] = (node, edge, ~shapely.contains_xy(vblk, XS, YS))
-    return out
-
-def route_net(netname):
-    hw = WIDTH.get(netname, 0.3) / 2
-    pads = padnodes[netname]
-    if len(pads) < 2: return True
-    mk = masks(netname, hw)
-    padset = {(i, j) for i, j, _, _ in pads}
-    def edge_ok(l, i, j, dx, dy):
-        node, edge, _ = mk[l]
-        ni, nj = i + dx, j + dy
-        if not (0 <= ni < NX and 0 <= nj < NY) or not node[ni, nj]: return False
-        if (dx, dy) in edge: return bool(edge[(dx, dy)][i, j])
-        return bool(edge[(-dx, -dy)][ni, nj])
-    tree = {(pads[0][0], pads[0][1], 0), (pads[0][0], pads[0][1], 1)}
-    todo = {(i, j) for i, j, _, _ in pads[1:]} - {(pads[0][0], pads[0][1])}
-    ok = True
-    while todo:
-        dist = {n: 0.0 for n in tree}; prev = {}
-        pq = [(0.0, n) for n in tree]; heapq.heapify(pq); hit = None
-        while pq:
-            d, n = heapq.heappop(pq)
-            if d > dist.get(n, 1e18): continue
-            i, j, l = n
-            if (i, j) in todo: hit = n; break
-            cand = []
-            for dx, dy, c in MOVES:
-                if edge_ok(l, i, j, dx, dy): cand.append(((i + dx, j + dy, l), c))
-            if (i, j) in padset or (mk[0][2][i, j] and mk[1][2][i, j] and mk[0][0][i, j] and mk[1][0][i, j]):
-                cand.append(((i, j, 1 - l), 0.0 if (i, j) in padset else 12.0))
-            for m, c in cand:
-                nd = d + c
-                if nd < dist.get(m, 1e18):
-                    dist[m] = nd; prev[m] = n; heapq.heappush(pq, (nd, m))
-        if hit is None:
-            failed.append((netname, sorted(todo))); ok = False; break
-        path = [hit]
-        while path[-1] in prev: path.append(prev[path[-1]])
-        todo.discard((hit[0], hit[1]))
-        for a, b in zip(path, path[1:]):
-            if a[2] != b[2]:
-                if (a[0], a[1]) not in padset:
-                    vias.append((netname, a[0] * G, a[1] * G))
-                    for l in (0, 1): obs[l].append((Point(a[0] * G, a[1] * G).buffer(VIA_D / 2), netname))
-            else:
-                tracks.append((netname, a[2], a[0] * G, a[1] * G, b[0] * G, b[1] * G, 2 * hw))
-                obs[a[2]].append((LineString([(a[0] * G, a[1] * G), (b[0] * G, b[1] * G)]).buffer(hw), netname))
-        for n in path:
-            tree.add(n)
-            if (n[0], n[1]) in padset: tree.add((n[0], n[1], 1 - n[2]))
-    # stubs for pads that are not exactly on the grid
-    for i, j, x, y in pads:
-        if abs(i * G - x) > 0.005 or abs(j * G - y) > 0.005:
-            for l in (0, 1):
-                tracks.append((netname, l, x, y, i * G, j * G, min(2 * hw, 0.8)))
-    return ok
-
-def span(n):
-    xs = [p[2] for p in padnodes[n]]; ys = [p[3] for p in padnodes[n]]
-    return (max(xs) - min(xs)) + (max(ys) - min(ys))
-order = ["BAT+", "FUSED", "SW_B", "VSW", "5V"] + sorted([n for n in padnodes if n not in WIDTH], key=span) + ["3V3", "GND"]
-for n in order:
-    route_net(n)
-print("routed nets:", len(order), "failed:", failed)
-
-# merge collinear grid steps into long segments
-def merged(tr):
-    out = []
-    for t in tr:
-        if out:
-            p = out[-1]
-            if p[0] == t[0] and p[1] == t[1] and p[6] == t[6]:
-                for (ax, ay, bx, by) in ((t[2], t[3], t[4], t[5]), (t[4], t[5], t[2], t[3])):
-                    for (px, py, qx, qy, tail) in ((p[2], p[3], p[4], p[5], True), (p[4], p[5], p[2], p[3], False)):
-                        if abs(qx - ax) < 1e-6 and abs(qy - ay) < 1e-6:
-                            cross = (qx - px) * (by - ay) - (qy - py) * (bx - ax)
-                            dot = (qx - px) * (bx - ax) + (qy - py) * (by - ay)
-                            if abs(cross) < 1e-9 and dot > 0:
-                                out[-1] = (p[0], p[1], px, py, bx, by, p[6]); break
-                    else: continue
-                    break
-                else:
-                    out.append(t)
-                continue
-        out.append(t)
-    return out
-tracks = merged(tracks)
-for (n, l, x1, y1, x2, y2, w) in tracks:
-    t = pcbnew.PCB_TRACK(board); t.SetStart(P(x1, y1)); t.SetEnd(P(x2, y2)); t.SetWidth(FromMM(w))
-    t.SetLayer(F if l == 0 else B); t.SetNet(net(n)); board.Add(t)
-for (n, x, y) in vias:
-    v = pcbnew.PCB_VIA(board); v.SetPosition(P(x, y)); v.SetDrill(FromMM(VIA_DRILL)); v.SetWidth(FromMM(VIA_D))
-    v.SetLayerPair(F, B); v.SetNet(net(n)); board.Add(v)
-
-# ---------------- design rules + ground pours ----------------
+# ---------------- design rules ----------------
 ds = board.GetDesignSettings()
-ds.m_MinClearance = FromMM(0.2); ds.m_TrackMinWidth = FromMM(0.25); ds.m_ViasMinSize = FromMM(0.6)
+ds.m_MinClearance = FromMM(0.15); ds.m_TrackMinWidth = FromMM(0.2); ds.m_ViasMinSize = FromMM(0.6)
 ds.m_MinThroughDrill = FromMM(0.3); ds.m_CopperEdgeClearance = FromMM(0.4); ds.m_HoleClearance = FromMM(0.25)
 ds.m_HoleToHoleMin = FromMM(0.45); ds.m_ViasMinAnnularWidth = FromMM(0.15)
 ds.m_NetSettings.m_DefaultNetClass.SetClearance(FromMM(0.2))
-ds.m_NetSettings.m_DefaultNetClass.SetTrackWidth(FromMM(0.3))
+ds.m_NetSettings.m_DefaultNetClass.SetTrackWidth(FromMM(0.25))
+ds.m_NetSettings.m_DefaultNetClass.SetViaDiameter(FromMM(VIA_D)); ds.m_NetSettings.m_DefaultNetClass.SetViaDrill(FromMM(VIA_DRILL))
+out = os.path.join(HERE, "dimer_main.kicad_pcb")
+pcbnew.SaveBoard(out, board)
+if "--place-only" in sys.argv:          # stop here to check the part placement before routing
+    print("placed", len(board.GetFootprints()), "footprints, not routed"); sys.exit(0)
+
+# ---------------- autoroute with freerouting ----------------
+WORK = os.environ.get("DIMER_WORK", "/tmp/dimer_route"); os.makedirs(WORK, exist_ok=True)
+dsn, ses = os.path.join(WORK, "dimer.dsn"), os.path.join(WORK, "dimer.ses")
+board = pcbnew.LoadBoard(out)
+pcbnew.ExportSpecctraDSN(board, dsn)
+WIDTHS = {"BAT+": 1.2, "FUSED": 1.2, "SW_B": 1.2, "VSW": 0.6, "5V": 0.6, "BUCK_SW": 0.6, "GND": 0.4,
+          "MOTL_A": 0.4, "MOTL_B": 0.4, "MOTR_A": 0.4, "MOTR_B": 0.4, "SPK+": 0.4, "SPK-": 0.4, "3V3": 0.4}
+txt = open(dsn).read()
+m = re.search(r'\(class kicad_default "" (.*?)\n\s*\(circuit', txt, flags=re.S)
+allnets = m.group(1).split()
+strip = lambda n: n.strip('"')
+via = re.search(r'\(use_via "?([^")]+)', txt).group(1)
+i0 = txt.index('(class kicad_default')
+depth = 0
+for j in range(i0, len(txt)):
+    if txt[j] == '(': depth += 1
+    elif txt[j] == ')':
+        depth -= 1
+        if depth == 0: break
+rest = [n for n in allnets if strip(n) not in WIDTHS]
+classes = '(class kicad_default "" %s\n      (circuit (use_via "%s"))\n      (rule (width 250) (clearance 200.1)))' % (" ".join(rest), via)
+for w in sorted(set(WIDTHS.values())):
+    ns = [n for n in allnets if WIDTHS.get(strip(n)) == w]
+    if ns: classes += '\n    (class w%d %s\n      (circuit (use_via "%s"))\n      (rule (width %d) (clearance 200.1)))' % (w * 1000, " ".join(ns), via, w * 1000)
+txt = txt[:i0] + classes + txt[j + 1:]
+open(dsn, "w").write(txt)
+if "--dsn-only" in sys.argv:            # write the router input and stop
+    print("wrote", dsn); sys.exit(0)
+if "--use-ses" not in sys.argv:         # --use-ses: reuse a session file routed in an earlier run
+    if os.path.exists(ses): os.remove(ses)
+    jar = os.environ.get("FREEROUTING", "freerouting-1.9.0.jar")
+    subprocess.run(["xvfb-run", "-a", "java", "-jar", jar, "-de", dsn, "-do", ses, "-mp", "40"], check=False, timeout=1500,
+                   stdout=open(os.path.join(WORK, "fr.log"), "w"), stderr=subprocess.STDOUT)
+assert os.path.exists(ses), "freerouting produced no session file"
+# read the routed session back in (tracks and vias per net)
+stxt = open(ses).read()
+SCALE = 1.0 / (1000.0 * int(re.search(r"\(resolution um (\d+)\)", stxt).group(1)))
+body = stxt[stxt.index("(network_out"):]
+ntracks = nvias = 0
+for blk in re.split(r"\(net ", body)[1:]:
+    name = re.match(r'"([^"]+)"|(\S+)', blk); name = name.group(1) or name.group(2)
+    ni = board.FindNet(name); assert ni is not None, name
+    for layer, width, pts in re.findall(r"\(path (\S+) (\d+)((?:\s+-?\d+\s+-?\d+)+)", blk):
+        c = [int(v) * SCALE for v in pts.split()]
+        xy = list(zip(c[0::2], c[1::2]))
+        for (x1, y1), (x2, y2) in zip(xy, xy[1:]):
+            t = pcbnew.PCB_TRACK(board); t.SetStart(P(x1, -y1)); t.SetEnd(P(x2, -y2)); t.SetWidth(FromMM(int(width) * SCALE))
+            t.SetLayer(pcbnew.F_Cu if layer == "F.Cu" else pcbnew.B_Cu); t.SetNet(ni); board.Add(t); ntracks += 1
+    for x, y in re.findall(r'\(via \S+ (-?\d+) (-?\d+)', blk):
+        v = pcbnew.PCB_VIA(board); v.SetPosition(P(int(x) * SCALE, -int(y) * SCALE)); v.SetDrill(FromMM(VIA_DRILL)); v.SetWidth(FromMM(VIA_D))
+        v.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu); v.SetNet(ni); board.Add(v); nvias += 1
+print("routed: %d track segments, %d vias" % (ntracks, nvias))
+
+# ---------------- ground pours ----------------
+F, B = pcbnew.F_Cu, pcbnew.B_Cu
 for layer in (F, B):
-    z = pcbnew.ZONE(board); z.SetLayer(layer); z.SetNet(net("GND")); z.SetZoneName("GND_" + ("F" if layer == F else "B"))
+    z = pcbnew.ZONE(board); z.SetLayer(layer); z.SetNet(board.FindNet("GND")); z.SetZoneName("GND_" + ("F" if layer == F else "B"))
     o = z.Outline(); o.NewOutline()
     for x, y in ((0.6, 0.6), (W - 0.6, 0.6), (W - 0.6, H - 0.6), (0.6, H - 0.6)): o.Append(FromMM(x), FromMM(y))
     z.SetLocalClearance(FromMM(0.3)); z.SetMinThickness(FromMM(0.25)); z.SetPadConnection(pcbnew.ZONE_CONNECTION_THERMAL)
-    z.SetThermalReliefGap(FromMM(0.4)); z.SetThermalReliefSpokeWidth(FromMM(0.6))
+    z.SetThermalReliefGap(FromMM(0.3)); z.SetThermalReliefSpokeWidth(FromMM(0.4))
     z.SetIslandRemovalMode(pcbnew.ISLAND_REMOVAL_MODE_ALWAYS)
     board.Add(z)
-out = os.path.join(HERE, "dimer_main.kicad_pcb")
 pcbnew.SaveBoard(out, board)
 board = pcbnew.LoadBoard(out)          # fill on a reloaded board (filling the in-memory one crashes KiCad 7)
 pcbnew.ZONE_FILLER(board).Fill(board.Zones())
@@ -342,4 +335,30 @@ dw.CreateDrillandMapFilesSet(gdir, True, False)
 zp = os.path.join(HERE, "dimer_main_gerbers_JLCPCB.zip")
 with zipfile.ZipFile(zp, "w", zipfile.ZIP_DEFLATED) as zf:
     for f in sorted(glob.glob(os.path.join(gdir, "*"))): zf.write(f, os.path.basename(f))
-print("tracks", len(tracks), "vias", len(vias), "gerber files", len(os.listdir(gdir)))
+
+# ---------------- JLCPCB assembly files: BOM + CPL ----------------
+# JLCPCB's part library is rotated against KiCad's for some packages; these are the usual corrections.
+ROT_FIX = [(r"^HTSSOP-", 270), (r"^TQFN-", 270), (r"^QFN-", 270), (r"^SOT-23", 180), (r"^CP_Elec_", 180)]
+groups, cpl = {}, []
+for fp in board.GetFootprints():
+    ref = fp.GetReference()
+    if ref not in LCSC: continue
+    part, comment = LCSC[ref]; name = str(fp.GetFPID().GetLibItemName())
+    groups.setdefault((comment, name, part), []).append(ref)
+    smdpads = [p for p in fp.Pads() if p.GetAttribute() == pcbnew.PAD_ATTRIB_SMD]
+    if smdpads: c = fp.GetPosition(); cx, cy = ToMM(c.x), ToMM(c.y)
+    else:                                   # through-hole parts: centre of the pins
+        ps = [p.GetPosition() for p in fp.Pads()]; cx = sum(ToMM(p.x) for p in ps) / len(ps); cy = sum(ToMM(p.y) for p in ps) / len(ps)
+    rot = fp.GetOrientationDegrees()
+    for pat, d in ROT_FIX:
+        if re.match(pat, name): rot += d
+    cpl.append((ref, "%.3fmm" % cx, "%.3fmm" % -cy, "Top", "%d" % (round(rot) % 360)))
+key = lambda r: (re.sub(r"\d+.*", "", r), int(re.search(r"\d+", r).group()), r)
+with open(os.path.join(HERE, "dimer_main_BOM_JLCPCB.csv"), "w", newline="") as f:
+    w = csv.writer(f); w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #"])
+    for (comment, name, part), refs in sorted(groups.items(), key=lambda kv: key(sorted(kv[1], key=key)[0])):
+        w.writerow([comment, ",".join(sorted(refs, key=key)), name, part])
+with open(os.path.join(HERE, "dimer_main_CPL_JLCPCB.csv"), "w", newline="") as f:
+    w = csv.writer(f); w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
+    for row in sorted(cpl, key=lambda r: key(r[0])): w.writerow(row)
+print("tracks", len(board.GetTracks()), "parts placed by JLCPCB", len(cpl), "BOM lines", len(groups), "gerber files", len(os.listdir(gdir)))
