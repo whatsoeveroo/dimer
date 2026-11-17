@@ -19,7 +19,16 @@ sys.path.insert(0, os.path.join(HERE, "..", "..", "cad"))
 import dimer_components as dc
 from dimer_components import B, CZ, CY, CX, asm, small_board, header
 
-OUT = os.path.join(HERE, "step")
+# Face display: run with  DIMER_DISPLAY=gc9a01_128_round python v2/cad/dimer_v2_frame.py  to try another one.
+# Each option sets its own head size, so the head grows around the bigger screens.
+DISPLAY = os.environ.get("DIMER_DISPLAY", "st7735_096")
+#            head (L, W, H)       screen centre above head floor   window
+DISPLAYS = {"st7735_096":       dict(head=(28.0, 40.0, 26.0), lcd_up=12.0, window=("rect", 23, 12), mic_dx=0.7),
+            "gc9a01_128_round": dict(head=(28.0, 44.0, 44.0), lcd_up=22.0, window=("round", 33), mic_dx=0.7),
+            "ssd1306_096_oled": dict(head=(28.0, 40.0, 34.0), lcd_up=14.0, window=("rect", 23, 12), mic_dx=-4.8)}   # mic moved back, clear of the OLED pins
+DSP = DISPLAYS[DISPLAY]
+VARIANT = DISPLAY != "st7735_096"     # the default display writes the main files; the others go to step/display_options/
+OUT = os.path.join(HERE, "step", "display_options", DISPLAY) if VARIANT else os.path.join(HERE, "step")
 os.makedirs(OUT, exist_ok=True)
 
 # ---------------- parameters (edit me) ----------------
@@ -33,9 +42,10 @@ TRACK_Y = TUB_W / 2 + TRACK_GAP + TRACK_W / 2  # 26
 BAT = (40.0, 30.0, 10.0)                       # flat 1S LiPo, largest size that fits
 DECK_Z = 16.0                                  # modules sit on top of battery and motors (foam tape)
 LID_T = 2.0
-HEAD_X0, HEAD_L, HEAD_W, HEAD_H = 10.0, 28.0, 40.0, 26.0   # fixed head on the lid
+HEAD_X0 = 10.0
+HEAD_L, HEAD_W, HEAD_H = DSP["head"]           # fixed head on the lid
 HEAD_Z = WALL_TOP + LID_T                      # 38
-LCD_Z = HEAD_Z + 12.0                          # display centre height
+LCD_Z = HEAD_Z + DSP["lcd_up"]                 # display (screen) centre height
 EDGE_X, EDGE_Y, EDGE_Z = 47.2, 27.0, 10.0      # table-edge sensors, in front of each track
 BLADE_X, BLADE_H, BLADE_W = 55.0, 13.0, 66.0   # fixed shovel blade
 TOF_Y, TOF_Z = 0.0, 30.5                      # distance sensor window in the front wall
@@ -94,14 +104,18 @@ def top():
     t = lid.union(head)
     # wire opening from the body up into the head
     t = t.cut(box(18, 26, LID_T + 2, cx=hx - 2, z0=WALL_TOP - 1))
-    # display window (0.96 inch, 21.7 x 10.8 mm active, landscape)
-    t = t.cut(box(6, 23, 12, cx=HEAD_X0 + HEAD_L - 1, z0=LCD_Z - 6))
+    # display window: slightly larger than the active area
+    w = DSP["window"]
+    if w[0] == "rect":
+        t = t.cut(box(6, w[1], w[2], cx=HEAD_X0 + HEAD_L - 1, z0=LCD_Z - w[2] / 2))
+    else:
+        t = t.cut(xcyl(w[1], 6, 0, LCD_Z, HEAD_X0 + HEAD_L - 4))
     # speaker grille in the back of the head, microphone hole in the top
     for gy in (-6, -3, 0, 3, 6):
         for gz in (-6, -3, 0, 3, 6):
             if abs(gy) + abs(gz) <= 9:
                 t = t.cut(xcyl(1.6, 6, gy, LCD_Z + gz, HEAD_X0 - 2))
-    t = t.cut(zcyl(1.5, 6, hx + 0.7, 0, HEAD_Z + HEAD_H - 4))
+    t = t.cut(zcyl(1.5, 6, hx + DSP["mic_dx"], 0, HEAD_Z + HEAD_H - 4))
     t = t.cut(box(4.8, 9, LID_T + 2, cx=-22, cy=8.5, z0=WALL_TOP - 1))          # slide switch, lever up
     # rear lid screws (M2 clearance)
     for sy in (-1, 1):
@@ -165,6 +179,35 @@ def lcd_096():
         pins = p if pins is None else pins.union(p)
     return asm("lcd_0in96_st7735", parts + [(strip, "black"), (pins, "gold")])
 
+def lcd_128_round():
+    """1.28 inch round IPS, GC9A01, 240 x 240, SPI, 7 pins. Origin: centre of the glass front face, looks toward +X.
+    Round board 38 mm across, glass 35.6 mm, active circle 32.4 mm. Header on the back near the bottom, pins pointing back."""
+    pcb = CX(38, 1.6, x0=-4.2)
+    glass = CX(35.6, 2.6, x0=-2.6)
+    scr = CX(32.4, 0.1, x0=-0.05)
+    strip = B(2.5, 17.8, 2.5, cx=-7.05, z0=-14.5)
+    pins = None
+    for i in range(7):
+        p = B(11.5, 0.64, 0.64, cx=-8.5, cy=-7.62 + 2.54 * i, z0=-13.57)
+        pins = p if pins is None else pins.union(p)
+    return asm("lcd_1in28_gc9a01_round", [(pcb, "pcb_black"), (glass, "glass"), (scr, "screen"), (strip, "black"), (pins, "gold")])
+
+def oled_096():
+    """0.96 inch OLED, SSD1306, 128 x 64, I2C, 4 pins. Origin: centre of the active area on the glass front, looks toward +X.
+    Board 27.3 x 27.8 mm with four M2 holes, glass 26.7 x 19.3 mm, active 21.7 x 10.9 mm. Header along the top edge, pins pointing back."""
+    pcb = B(1.6, 27.3, 27.8, cx=-2.4, z0=-12.4)
+    for hy in (-11.75, 11.75):
+        for hz in (-10.4, 13.0):
+            pcb = pcb.cut(CX(2.2, 4, y=hy, z=hz, x0=-5))
+    glass = B(1.6, 26.7, 19.3, cx=-0.8, z0=-8.6)
+    scr = B(0.1, 21.7, 10.9, cx=-0.05 + 0.05, z0=-5.45)
+    strip = B(2.5, 10.2, 2.5, cx=-4.45, z0=11.8)
+    pins = None
+    for i in range(4):
+        p = B(11.5, 0.64, 0.64, cx=-5.9, cy=-3.81 + 2.54 * i, z0=12.73)
+        pins = p if pins is None else pins.union(p)
+    return asm("oled_0in96_ssd1306", [(pcb, "pcb_blue"), (glass, "black"), (scr, "screen"), (strip, "black"), (pins, "gold")])
+
 def speaker_20mm():
     """Origin: centre of the front rim, sound comes out toward -X."""
     rim = CX(20, 1.0, x0=0).cut(CX(17, 3, x0=-1))
@@ -203,9 +246,9 @@ put("motor_driver", dc.drv8833_driver(), T(-XI + 12.5, -9, DECK_Z))
 put("esp32_s3_supermini", esp32_s3_supermini(), T(2, -8, DECK_Z))
 put("speaker_amplifier", dc.max98357_amp(), T(23.5, -8, DECK_Z))
 put("distance_sensor", dc.vl53l0x_tof(), T(XI - 3, TOF_Y, TOF_Z) * R(RY, 90) * R(RZ, 90))
-put("face_display", lcd_096(), T(HEAD_X0 + HEAD_L - 2, 0, LCD_Z))
+put("face_display", {"st7735_096": lcd_096, "gc9a01_128_round": lcd_128_round, "ssd1306_096_oled": oled_096}[DISPLAY](), T(HEAD_X0 + HEAD_L - 2, 0, LCD_Z))
 put("speaker", speaker_20mm(), T(HEAD_X0 + 2.1, 0, LCD_Z))
-put("microphone", dc.inmp441_mic(), T(HEAD_X0 + HEAD_L / 2 + 0.7, 0, HEAD_Z + HEAD_H - 5.4))
+put("microphone", dc.inmp441_mic(), T(HEAD_X0 + HEAD_L / 2 + DSP["mic_dx"], 0, HEAD_Z + HEAD_H - 5.4))
 put("edge_sensor_front_left", dc.tcrt5000_module(), T(EDGE_X, EDGE_Y, EDGE_Z))
 put("edge_sensor_front_right", dc.tcrt5000_module(), T(EDGE_X, -EDGE_Y, EDGE_Z) * R(RZ, 180))
 
@@ -221,18 +264,20 @@ fa = cq.Assembly(name="dimer_v2_frame_only")
 sub = {g: cq.Assembly(name=g) for g in ["printed_frame"] + list(dict.fromkeys(GROUPS.values()))}
 for name, (shape, col) in parts.items():
     sub["printed_frame"].add(shape, name=name, color=cq.Color(*col)); fa.add(shape, name=name, color=cq.Color(*col))
-    cq.exporters.export(shape, os.path.join(OUT, name + ".step"))
+    if not VARIANT or name == "v2_frame_top":
+        cq.exporters.export(shape, os.path.join(OUT, name + ".step"))
 for name, a, loc in placed:
     sub[group_of(name)].add(a, name=name, loc=loc)
 for g, a in sub.items():
     assy.add(a, name=g)
 assy.save(os.path.join(OUT, "dimer_v2_guideline_assembly.step"))
-fa.save(os.path.join(OUT, "dimer_v2_frame_only.step"))
+if not VARIANT: fa.save(os.path.join(OUT, "dimer_v2_frame_only.step"))
 
-COMP = os.path.join(OUT, "components"); os.makedirs(COMP, exist_ok=True)
+COMP = os.path.join(OUT, "components") if not VARIANT else OUT; os.makedirs(COMP, exist_ok=True)
 V1_COMP = os.path.join(HERE, "..", "..", "cad", "step", "components")
 seen = set()
 for name, a, loc in placed:          # only the parts V1 does not already have a STEP for
+    if VARIANT and name != "face_display": continue
     if a.name not in seen and not os.path.exists(os.path.join(V1_COMP, a.name + ".step")):
         seen.add(a.name); a.save(os.path.join(COMP, a.name + ".step"))
 

@@ -41,3 +41,21 @@ Rough guideline, same as V1. Part sizes are typical seller dimensions, so measur
 pip install cadquery
 python v2/cad/dimer_v2_frame.py
 ```
+
+## Face display options
+
+Three screens to try. The head grows to fit each one, and the clash check passes for all three.
+
+| Option | Screen | Head (L × W × H) | Robot height | Notes |
+|---|---|---|---|---|
+| `st7735_096` (default) | 0.96 in IPS, 80 × 160 colour, SPI | 28 × 40 × 26 | 64 mm | Current choice, rectangular colour face. |
+| `gc9a01_128_round` | 1.28 in round IPS, 240 × 240 colour, SPI | 28 × 44 × 44 | 82 mm | One big round eye. Same pins as the default. |
+| `ssd1306_096_oled` | 0.96 in OLED, 128 × 64 one colour, I2C | 28 × 40 × 34 | 72 mm | Shares the distance sensor's two wires and frees three brain pins. |
+
+![display options](docs/display_options.png)
+
+Each option has its own head (`v2_frame_top.step`), the display model, and a full assembly in `cad/step/display_options/<option>/`. To make one, run:
+
+```
+DIMER_DISPLAY=gc9a01_128_round python v2/cad/dimer_v2_frame.py
+```
