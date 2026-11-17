@@ -1,32 +1,36 @@
-// Dimer V2 (half size) - pin map for the ESP32-S3 Super Mini.
-// The board exposes GPIO 1-13, 43 and 44. All 15 are used. Check the labels printed on your board.
-// No custom board: every line below is one jumper wire.
+// Dimer V2.1 - pin map for the Seeed XIAO ESP32S3 Sense (brain + camera + microphone in the head).
+// The camera and microphone are wired inside the Sense board, so they use no pins below.
+// The XIAO has 11 pins (D0-D10). All 11 are used; the rest goes through a PCF8574 I2C expander.
+// Leave the microSD card slot empty: it shares D8 and D10 with the display.
 #pragma once
 
-// Tracks (DRV8833: two inputs per motor, PWM one, hold the other low)
-#define PIN_MOT_AIN1 1    // left track (rear motor)
-#define PIN_MOT_AIN2 2
-#define PIN_MOT_BIN1 3    // right track (front motor)
-#define PIN_MOT_BIN2 4
+// Tracks (DRV8833). One PWM pin per motor on the XIAO, the direction pin on the expander.
+// Forward: DIR = 0, PWM = speed. Reverse: DIR = 1, PWM = 255 - speed.
+#define PIN_MOT_L_PWM  D0   // DRV8833 AIN1
+#define PIN_MOT_R_PWM  D1   // DRV8833 BIN1
+#define EXP_MOT_L_DIR  0    // PCF8574 P0 -> DRV8833 AIN2
+#define EXP_MOT_R_DIR  1    // PCF8574 P1 -> DRV8833 BIN2
 
-// Table-edge sensors (TCRT5000 module, DO pin). HIGH = no table under the sensor.
-// Front pair only. Reverse only over ground the robot has just driven.
-#define PIN_EDGE_FL 5
-#define PIN_EDGE_FR 6
+// Head tilt servo (SG90). 0 deg = looking ahead, about 25 deg = looking up. Do not drive past the stop.
+#define PIN_SERVO_TILT D2
+#define TILT_MIN_DEG   0
+#define TILT_MAX_DEG   25
 
-// Face display (0.96 inch ST7735, 80x160). CS wired to GND, RES and BLK wired to 3V3.
-#define PIN_LCD_SCK  7
-#define PIN_LCD_MOSI 8
-#define PIN_LCD_DC   9
+// I2C bus: PCF8574 expander (address 0x20)
+#define PIN_I2C_SDA    D4
+#define PIN_I2C_SCL    D5
+#define EXP_ADDR       0x20
 
-// Audio (I2S). Microphone and amplifier share the two clock lines.
-#define PIN_I2S_BCLK 10
-#define PIN_I2S_WS   11
-#define PIN_I2S_DOUT 12   // to MAX98357A DIN (speaker)
-#define PIN_I2S_DIN  13   // from INMP441 SD (microphone)
+// Table-edge sensors (TCRT5000 DO pin) on the expander. HIGH = no table under the sensor.
+#define EXP_EDGE_FL    2    // PCF8574 P2
+#define EXP_EDGE_FR    3    // PCF8574 P3
 
-// I2C bus (distance sensor VL53L0X). The USB port is used for programming and logs, so the UART pins are free.
-#define PIN_I2C_SDA 43
-#define PIN_I2C_SCL 44
+// Audio out (I2S to MAX98357A). The microphone is on the Sense board.
+#define PIN_I2S_BCLK   D6
+#define PIN_I2S_WS     D7
+#define PIN_I2S_DOUT   D3
 
-// No servos, no battery-voltage sense, no LED strip in V2.
+// Face display (0.96 inch ST7735, SPI). CS wired to GND, RES and BLK wired to 3V3.
+#define PIN_LCD_SCK    D8
+#define PIN_LCD_DC     D9
+#define PIN_LCD_MOSI   D10
