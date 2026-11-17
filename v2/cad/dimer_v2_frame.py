@@ -42,7 +42,7 @@ TUB_L, TUB_W_IN, WALL = 78.0, 34.0, 2.0        # chassis tub
 FLOOR_Z, FLOOR_T = 4.0, 1.5                    # ground clearance 4 mm
 TUB_W = TUB_W_IN + 2 * WALL                    # 38
 XI = TUB_L / 2 - WALL                          # inner face of front / rear wall (37)
-BAY_TOP, STEP_TOP, XS = 40.0, 19.0, 5.0        # tall electronics bay behind x = XS, low step in front of it
+BAY_TOP, STEP_TOP, XS = 42.0, 19.0, 5.0        # tall electronics bay behind x = XS (room for jumper plugs), low step in front of it
 LID_T = 2.0
 WHEEL_D, WHEELBASE = 22.0, 58.0                # bigger wheels than the first V2 (15 mm)
 TRACK_W, TRACK_T, LUG, TRACK_GAP = 11.0, 1.2, 1.4, 1.5
@@ -50,7 +50,9 @@ AXLE_Z = WHEEL_D / 2 + TRACK_T + LUG           # 13.6
 TRACK_TOP = 2 * AXLE_Z
 TRACK_Y = TUB_W / 2 + TRACK_GAP + TRACK_W / 2  # 26
 BAT = (40.0, 30.0, 10.0)                       # flat 1S LiPo, largest size that fits
-DECK_Z = 20.2                                  # pinned boards sit on foam above battery and motors
+DECK_Z = 20.2                                  # power board rests on wall ledges here, above battery and left motor
+BOARD_X0, BOARD_Y0 = -36.0, 16.5               # robot position of the power board's KiCad origin (X = x + 36, Y = 16.5 - y)
+BOARD_JSON = os.path.join(HERE, "..", "pcb", "dimer_v2_power_parts.json")
 PX, PZ = XS - 11.5, 33.5                       # head tilt axis (along Y), just above the tracks
 HEAD_W = max(40.0, DSP["w"] + 6)
 HEAD_Z = STEP_TOP + LID_T + 2.0 if HEAD_W <= 40 else TRACK_TOP + 1.5   # a head wider than the gap between the tracks must sit above them
@@ -65,6 +67,7 @@ BLADE_X, BLADE_H, BLADE_W = EDGE_X + 7.8, 15.0, 66.0 # fixed shovel blade
 def box(x, y, z, cx=0, cy=0, z0=0):
     return cq.Workplane("XY").box(x, y, z, centered=(True, True, False)).translate((cx, cy, z0))
 def xbox(x0, x1, y0, y1, z0, z1):
+    x0, x1, y0, y1, z0, z1 = min(x0, x1), max(x0, x1), min(y0, y1), max(y0, y1), min(z0, z1), max(z0, z1)
     return box(x1 - x0, y1 - y0, z1 - z0, cx=(x0 + x1) / 2, cy=(y0 + y1) / 2, z0=z0)
 def xcyl(d, length, y, z, x0):
     return cq.Workplane("YZ").circle(d / 2).extrude(length).translate((x0, y, z))
@@ -81,6 +84,14 @@ def soft(shape, sel, r):
 # Left motor drives the rear wheel, right motor drives the front wheel.
 # Two N20 motors are too long to sit on one axle in a 34 mm wide body.
 MOTORS = ((-WHEELBASE / 2, 1), (WHEELBASE / 2, -1))     # (x, side of the driven wheel)
+
+
+# ---------------- power board (from v2/pcb/make_board_v2.py via board_parts_json.py) ----------------
+BOARD = json.load(open(BOARD_JSON))
+def board_to_robot(X, Y): return X + BOARD_X0, BOARD_Y0 - Y
+PB = {p["ref"]: p for p in BOARD["parts"]}
+def _centre(ref): p = PB[ref]; return (p["x0"] + p["x1"]) / 2, (p["y0"] + p["y1"]) / 2
+USB_C_XY, SWITCH_XY, LEDS_XY = _centre("J1"), PB["SW1"]["lever"], [_centre("D1"), _centre("D2")]
 
 # ---------------- chassis tub ----------------
 def chassis():
@@ -103,8 +114,17 @@ def chassis():
         tub = tub.cut(xcyl(2.2, WALL + 2, sy * 12, STEP_TOP - 4, XI - 1))
     for y in (-5, 5):
         tub = tub.cut(xcyl(1.6, WALL + 2, y, 13, XI - 1))
-    # rear wall: USB-C charging slot, lid tab screw (M2)
-    tub = tub.cut(box(WALL + 2, 10, 4.4, cx=-XI - WALL / 2, cy=8.5, z0=DECK_Z + 0.2))
+    # power board: ledges on both side walls, a screw pillar at the rear-right (M2 x 6)
+    for sy in (-1, 1):
+        tub = tub.union(xbox(-XI + 0.5, XS - 1.5, sy * (TUB_W_IN / 2 - 1.5), sy * TUB_W_IN / 2, DECK_Z - 1.2, DECK_Z))
+    hx, hy = board_to_robot(*BOARD["holes"][0])
+    tub = tub.union(xbox(hx - 2.0, hx + 2.5, -TUB_W_IN / 2 - 0.5, hy + 2.0, FLOOR_Z + 1, DECK_Z).cut(zcyl(1.6, 9, hx, hy, DECK_Z - 8)))
+    tub = tub.cut(ycyl(2.5, WALL + 8, MOTORS[0][0], AXLE_Z, -TUB_W / 2 - 1))                 # right idler axle pilot runs on into the pillar
+    # rear wall: USB-C plug opening, power switch slot in a thin pocket, lid tab screw (M2)
+    ux, uy = board_to_robot(*USB_C_XY); sx_, sy_ = board_to_robot(*SWITCH_XY)
+    tub = tub.cut(box(WALL + 2, 12.5, 7.0, cx=-XI - WALL / 2, cy=uy, z0=DECK_Z + 1.6 + 1.6 - 3.5))
+    tub = tub.cut(xbox(-XI - WALL - 1, -XI - 1.0, sy_ - 5.5, sy_ + 5.5, DECK_Z - 0.5, DECK_Z + 6))
+    tub = tub.cut(box(WALL + 2, 6.5, 3.4, cx=-XI - WALL / 2, cy=sy_, z0=DECK_Z + 1.6 - 0.2))
     tub = tub.cut(xcyl(2.2, WALL + 2, 4, BAY_TOP - 4, -XI - WALL - 1))
     # battery strap slots in the floor
     for x in (-10, 10):
@@ -122,7 +142,10 @@ def top():
     step = xbox(XS, TUB_L / 2, -TUB_W / 2, TUB_W / 2, STEP_TOP, STEP_TOP + LID_T)
     t = lid.union(riser).union(step)
     t = t.cut(box(WALL + 2, 16, 9, cx=XS + WALL / 2, z0=STEP_TOP + LID_T + 3))             # cable slot from the bay to the head
-    t = t.cut(box(4.8, 9, LID_T + 2, cx=-31, cy=8.5, z0=BAY_TOP - 1))                       # slide switch, lever up
+    for led in LEDS_XY:                                                                      # see the charge lights through the lid
+        lx, ly = board_to_robot(*led); t = t.cut(zcyl(2.5, LID_T + 2, lx, ly, BAY_TOP - 1))
+    for y0, y1 in ((-15.0, -1.0), (11.0, 15.5)):                                             # lips that clamp the board's front edge
+        t = t.union(xbox(XS - 2.5, XS, y0, y1, DECK_Z + 1.6 + 0.05, DECK_Z + 1.6 + 1.6))
     # rear tab behind the rear wall, front tabs behind the front wall: screwed from outside (M2)
     tab = xbox(-XI, -XI + 2.5, 2, 6, BAY_TOP - 8, BAY_TOP).cut(xcyl(1.6, 5, 4, BAY_TOP - 4, -XI - 1))
     t = t.union(tab)
@@ -244,22 +267,35 @@ def xiao_s3_sense():
         parts += [(strip, "black"), (pins, "gold")]
     return asm("xiao_esp32s3_sense_camera", parts)
 
-def io_expander():
-    """PCF8574 I2C expander, small breakout. Gives 8 extra slow pins over the two I2C wires."""
-    return small_board("pcf8574_io_expander", 20, 16, "pcb_red", [(7.5, 5.3, 1.6, 0, 0, "black"), (2, 1.2, 1, 6, 3, "dark")], pins=[(6, 0, -6.6, "x"), (6, 0, 6.6, "x")])
-
 def speaker_20mm():
     """Origin: centre of the front rim, sound comes out toward -X."""
     rim = CX(20, 1.0, x0=0).cut(CX(17, 3, x0=-1))
     cone = cq.Workplane("YZ").circle(8.5).workplane(offset=2.5).circle(4).loft().translate((0.5, 0, 0))
     return asm("speaker_20mm", [(rim, "steel"), (cone, "dark"), (CX(14, 1.6, x0=1.0), "steel"), (CX(10, 2.2, x0=2.6), "grey")])
 
-def slide_switch():
-    """Origin: centre of the panel face. Lever sticks out toward -X, body toward +X."""
-    return asm("slide_switch", [(B(4.4, 8.6, 4.4, cx=2.2, z0=-2.2), "steel"), (B(3.5, 2.5, 2.5, cx=-1.75, cy=1.5, z0=-1.25), "black"), (B(3, 5.5, 0.6, cx=5.9, z0=-0.3), "gold")])
 
-def charger_boost_1s():
-    return small_board("charger_boost_1s_usb_c", 26, 17, "pcb_blue", [(7.4, 8.9, 3.2, -9.6, 0, "steel"), (6, 6, 3, 2, 0, "dark"), (3, 3, 1, 9, 4, "black"), (1.2, 1.2, 0.8, 9, -5, "white")])
+def power_board():
+    """V2 power board as built: outline, mounting hole and a block per part, read from the KiCad board."""
+    T_ = BOARD["thickness"]
+    xs = [v for e in BOARD["edges"] for v in (e[0], e[2])]; ys = [v for e in BOARD["edges"] for v in (e[1], e[3])]
+    X0, X1, Y0, Y1 = min(xs), max(xs), min(ys), max(ys)
+    def rbox(X0_, X1_, Y0_, Y1_, z0, z1):
+        (xa, ya), (xb, yb) = board_to_robot(X0_, Y0_), board_to_robot(X1_, Y1_)
+        return xbox(min(xa, xb), max(xa, xb), min(ya, yb), max(ya, yb), z0, z1)
+    pcb = soft(rbox(X0, X1, Y0, Y1, 0, T_), "|Z", BOARD["corner_r"])
+    nX = max(e[0] for e in BOARD["edges"] if abs(e[0] - e[2]) < 1e-6 and e[0] > X0 + 0.5 and e[0] < X1 - 0.5)   # notch inner edge
+    nY = max(e[1] for e in BOARD["edges"] if abs(e[1] - e[3]) < 1e-6 and e[1] > Y0 + 0.5 and e[1] < Y1 - 0.5)
+    pcb = pcb.cut(rbox(X0 - 1, nX, nY, Y1 + 1, -1, T_ + 1))
+    for hX, hY in BOARD["holes"]:
+        hx, hy = board_to_robot(hX, hY); pcb = pcb.cut(zcyl(2.2, T_ + 2, hx, hy, -1))
+    parts = [(pcb, "pcb_black")]
+    for p in BOARD["parts"]:
+        parts.append((rbox(p["x0"], p["x1"], p["y0"], p["y1"], T_, T_ + p["h"]), p["color"]))
+        for pX, pY in p.get("pins", []):
+            px, py = board_to_robot(pX, pY); parts.append((box(0.64, 0.64, 3.0 + T_ + p["h"] + 6.0, cx=px, cy=py, z0=-3.0), "gold"))
+        if "lever" in p:
+            lX, lY = p["lever"]; parts.append((rbox(min(p["x0"], p["x1"]) - 1.6, min(p["x0"], p["x1"]), lY - 0.7, lY + 0.7, T_ + 0.3, T_ + 1.3), "black"))
+    return asm("dimer_v2_power_board", parts)
 
 # ---------------- bought parts, placed in the robot ----------------
 L = cq.Location
@@ -272,7 +308,7 @@ placed = []
 def put(name, a, loc): placed.append((name, a, loc))
 def hput(name, a, loc): placed.append((name, a, HEAD_TILT * loc))
 # groups in the assembly tree, so a CAD program shows folders instead of one long flat list
-GROUPS = {"track": "drive", "motor": "drive", "battery": "power", "usb_c": "power", "power_": "power", "brain": "brain_and_camera", "io_": "brain_and_camera",
+GROUPS = {"track": "drive", "motor": "drive", "battery": "power", "power_": "power", "brain": "brain_and_camera", 
           "speaker": "voice", "face_": "face", "edge_": "senses", "servo": "head_tilt"}
 def group_of(name):
     return next(g for k, g in GROUPS.items() if name.startswith(k))
@@ -282,10 +318,7 @@ for sy, tag in ((1, "left"), (-1, "right")):
 put("motor_left", dc.motor_n20(), T(MOTORS[0][0], TUB_W_IN / 2, AXLE_Z))
 put("motor_right", dc.motor_n20(), T(MOTORS[1][0], -TUB_W_IN / 2, AXLE_Z) * R(RZ, 180))
 put("battery", lipo_1s(), T(0, 0, FLOOR_Z + FLOOR_T))
-put("usb_c_charger", charger_boost_1s(), T(-XI + 13.5, 8.5, DECK_Z - 0.6))
-put("power_switch", slide_switch(), T(-31, 8.5, BAY_TOP + LID_T) * R(RY, 90))
-put("motor_driver", dc.drv8833_driver(), T(-XI + 9.75, -9, DECK_Z))
-put("io_expander", io_expander(), T(-XI + 29.5, -9, DECK_Z))
+put("power_board", power_board(), T(0, 0, DECK_Z))
 put("servo_tilt", dc.servo_mg90s(horn=False), T(PX, TUB_W_IN / 2 - 2.5, PZ) * R(RX, -90))
 hput("face_display", {"st7735_096": lcd_096, "gc9a01_128_round": lcd_128_round, "ssd1306_096_oled": oled_096}[DISPLAY](), T(HEAD_X1 - 2, 0, LCD_Z))
 hput("brain_camera", xiao_s3_sense(), T(HEAD_X1 - 1.5, 0, CAM_Z))

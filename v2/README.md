@@ -8,11 +8,11 @@ A second, smaller Dimer. V1 in the folders above is unchanged and still builds o
 | Head | turns on a servo | sits low in front of the body, tilts up to 25 degrees on one micro servo |
 | Camera | none | yes, above the display (brain and camera are one board in the head) |
 | Shovel | lifts on a servo | fixed to the front |
-| Battery | 2 x 18650 (7.4 V) | one flat 1S LiPo (3.7 V), boosted to 5 V |
-| Electronics | custom main board | small modules joined by jumper wires |
+| Battery | 2 x 18650 (7.4 V) | one flat 1S LiPo (3.7 V), charged over USB-C on the power board |
+| Electronics | custom main board | one small power board made by JLCPCB, jumper wires to the head |
 | Tracks | bought track set | printed 22 mm wheels with a rubber band or TPU belt |
 | Edge sensors | 4 | 2, front only |
-| Parts cost | about $134 | about $57 |
+| Parts cost | about $134 | about $67 to $75 |
 
 ![V2 preview](docs/assembly_preview.png)
 
@@ -21,11 +21,12 @@ A second, smaller Dimer. V1 in the folders above is unchanged and still builds o
 | `cad/` | `dimer_v2_frame.py` generates the four printed parts and places every bought part. It reuses the part models in `../cad/dimer_components.py`. `cad/step/` has one STEP per printed part, the full assembly, and `components/` with the parts V1 does not have. |
 | `docs/` | `BOM.md` buying list, preview images, `drawings/` with the four-view A3 drawing (PDF, SVG, PNG), and `web/dimer_v2_build_plan.html`, the 3D build page (live at https://claude.ai/artifact/1GJJysHat3mT6KsMUrrWHj). |
 | `firmware/` | `dimer_v2_pins.h` pin map for the XIAO ESP32S3 Sense. |
+| `pcb/` | The power board: KiCad file, Gerbers and JLCPCB parts files, ordering guide (`pcb/README.md`). |
 
 ## Printed parts
 
-- `v2_frame_chassis`: the tub. A tall bay at the back holds the battery, charger and boards. A low step at the front lets the head sit down close to the tracks. The tilt servo drops into a notch in the left wall.
-- `v2_frame_top`: bay lid, the riser between bay and step, and the step plate, in one piece.
+- `v2_frame_chassis`: the tub. A tall bay at the back holds the battery and, above it on two wall ledges, the power board (one M2 screw at the rear right). The rear wall has the USB-C opening and the power switch slot. A low step at the front lets the head sit down close to the tracks. The tilt servo drops into a notch in the left wall.
+- `v2_frame_top`: bay lid, the riser between bay and step, and the step plate, in one piece. Two holes show the charge lights; two lips under the riser hold the board's front edge.
 - `v2_frame_head`: holds the display, the camera brain above it, the speaker in the left cheek and the amplifier on its floor. Open at the back so your shell can close it. Two arms reach back to the tilt axis: the left arm bolts to the servo horn, the right arm turns on an M3 screw in the boss on the right wall.
 - `v2_frame_shovel`: blade, plus the shelf that carries the two edge sensors. Two screws into the front wall.
 
@@ -68,3 +69,15 @@ Each option has its own head (`v2_frame_head.step`), the display model, and a fu
 ```
 DIMER_DISPLAY=gc9a01_128_round python v2/cad/dimer_v2_frame.py
 ```
+
+## Track options
+
+Two other track styles to try, next to the stock O-ring track. `python v2/cad/track_options.py` writes their STEP files into `cad/track_options/`.
+
+![track options](docs/track_options.png)
+
+| Option | What it is | To buy / print | Fits as is? |
+|---|---|---|---|
+| Stock | O-rings over four printed 22 mm wheels | 4 O-rings, about 60 mm | yes |
+| A, clean belt | GT2 rubber timing belt, 10 mm wide, 188 mm closed loop, on printed 34-tooth flanged wheels. Smooth outside, quiet, neat. | 2 belts, about $2 each | needs a 60 mm wheelbase (stock 58): the motor and idler holes move 1 mm out each side |
+| B, chain links | 30 printed links per side, each with a grouser outside and a guide tooth inside, joined by 1.75 mm filament pins, on 11-tooth printed sprockets. The mechanical look. | print in PETG or nylon, pins cut from filament | yes, same 58 mm wheelbase and about the same height (27.6 mm vs 27.2 mm) |
