@@ -5,59 +5,78 @@ Writes STEP files into v2/cad/step/.  Units: mm.
 Axes: X = forward, Y = left, Z = up, table surface at Z = 0.
 
 V2 is a separate, smaller robot. V1 in cad/ is untouched.
-Differences from V1: about half the size, the head is fixed (no neck servo),
-the shovel is fixed (no shovel servo), one flat 1S battery, no custom board.
+V2.1 layout: the head sits low on a step in front of the electronics bay and tilts up on
+one small servo. The brain with its camera lives in the head, above the display.
+The shovel is fixed. One flat 1S battery, no custom board.
 
 This is a ROUGH GUIDELINE, not a design: it fixes where the parts sit and
 where the mounting holes go.  Change the numbers below after measuring the
 parts you actually bought, then run again.
+
+Options (environment variables):
+  DIMER_DISPLAY=st7735_096 | gc9a01_128_round | ssd1306_096_oled   which face display
+  DIMER_TILT=25                                                   head tilted up by this many degrees (check only, saves nothing)
 """
-import json, os, sys
+import json, os, sys, tempfile
 import cadquery as cq
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "cad"))
 import dimer_components as dc
 from dimer_components import B, CZ, CY, CX, asm, small_board, header
 
-# Face display: run with  DIMER_DISPLAY=gc9a01_128_round python v2/cad/dimer_v2_frame.py  to try another one.
-# Each option sets its own head size, so the head grows around the bigger screens.
 DISPLAY = os.environ.get("DIMER_DISPLAY", "st7735_096")
-#            head (L, W, H)       screen centre above head floor   window
-DISPLAYS = {"st7735_096":       dict(head=(28.0, 40.0, 26.0), lcd_up=12.0, window=("rect", 23, 12), mic_dx=0.7),
-            "gc9a01_128_round": dict(head=(28.0, 44.0, 44.0), lcd_up=22.0, window=("round", 33), mic_dx=0.7),
-            "ssd1306_096_oled": dict(head=(28.0, 40.0, 34.0), lcd_up=14.0, window=("rect", 23, 12), mic_dx=-4.8)}   # mic moved back, clear of the OLED pins
+TILT = float(os.environ.get("DIMER_TILT", "0"))
+TILT_MAX = 25.0
+#            module width, how far it reaches below / above the screen centre, window in the head front
+DISPLAYS = {"st7735_096":       dict(w=30.0, below=12.0, above=12.0, window=("rect", 23, 12)),
+            "gc9a01_128_round": dict(w=38.0, below=19.0, above=19.0, window=("round", 33)),
+            "ssd1306_096_oled": dict(w=27.3, below=12.4, above=18.0, window=("rect", 23, 12))}   # its pins stick back along the top edge
 DSP = DISPLAYS[DISPLAY]
 VARIANT = DISPLAY != "st7735_096"     # the default display writes the main files; the others go to step/display_options/
 OUT = os.path.join(HERE, "step", "display_options", DISPLAY) if VARIANT else os.path.join(HERE, "step")
+if TILT: OUT = tempfile.mkdtemp()
 os.makedirs(OUT, exist_ok=True)
 
 # ---------------- parameters (edit me) ----------------
-TUB_L, TUB_W_IN, WALL = 76.0, 34.0, 2.0        # chassis tub
-FLOOR_Z, FLOOR_T, WALL_TOP = 2.5, 1.5, 36.0    # ground clearance 2.5 mm
+TUB_L, TUB_W_IN, WALL = 78.0, 34.0, 2.0        # chassis tub
+FLOOR_Z, FLOOR_T = 4.0, 1.5                    # ground clearance 4 mm
 TUB_W = TUB_W_IN + 2 * WALL                    # 38
-XI = TUB_L / 2 - WALL                          # inner face of front / rear wall (36)
-AXLE_Z, WHEELBASE = 9.0, 58.0
-WHEEL_D, TRACK_W, TRACK_T, TRACK_GAP = 15.0, 11.0, 1.5, 1.5
+XI = TUB_L / 2 - WALL                          # inner face of front / rear wall (37)
+BAY_TOP, STEP_TOP, XS = 40.0, 19.0, 5.0        # tall electronics bay behind x = XS, low step in front of it
+LID_T = 2.0
+WHEEL_D, WHEELBASE = 22.0, 58.0                # bigger wheels than the first V2 (15 mm)
+TRACK_W, TRACK_T, LUG, TRACK_GAP = 11.0, 1.2, 1.4, 1.5
+AXLE_Z = WHEEL_D / 2 + TRACK_T + LUG           # 13.6
+TRACK_TOP = 2 * AXLE_Z
 TRACK_Y = TUB_W / 2 + TRACK_GAP + TRACK_W / 2  # 26
 BAT = (40.0, 30.0, 10.0)                       # flat 1S LiPo, largest size that fits
-DECK_Z = 16.0                                  # modules sit on top of battery and motors (foam tape)
-LID_T = 2.0
-HEAD_X0 = 10.0
-HEAD_L, HEAD_W, HEAD_H = DSP["head"]           # fixed head on the lid
-HEAD_Z = WALL_TOP + LID_T                      # 38
-LCD_Z = HEAD_Z + DSP["lcd_up"]                 # display (screen) centre height
-EDGE_X, EDGE_Y, EDGE_Z = 47.2, 27.0, 10.0      # table-edge sensors, in front of each track
-BLADE_X, BLADE_H, BLADE_W = 55.0, 13.0, 66.0   # fixed shovel blade
-TOF_Y, TOF_Z = 0.0, 30.5                      # distance sensor window in the front wall
+DECK_Z = 20.2                                  # pinned boards sit on foam above battery and motors
+PX, PZ = XS - 11.5, 33.5                       # head tilt axis (along Y), just above the tracks
+HEAD_W = max(40.0, DSP["w"] + 6)
+HEAD_Z = STEP_TOP + LID_T + 2.0 if HEAD_W <= 40 else TRACK_TOP + 1.5   # a head wider than the gap between the tracks must sit above them
+HEAD_X0, HEAD_L = XS + WALL + 3.0, 38.0
+HEAD_X1 = HEAD_X0 + HEAD_L
+LCD_Z = HEAD_Z + 2.0 + DSP["below"]            # display centre
+CAM_Z = LCD_Z + DSP["above"] + 5.0             # camera lens centre, above the display
+HEAD_H = CAM_Z + 9.5 + 2.0 - HEAD_Z
+EDGE_X, EDGE_Y, EDGE_Z = HEAD_X1 + 7.4, 27.0, 10.0   # table-edge sensors, in front of each track
+BLADE_X, BLADE_H, BLADE_W = EDGE_X + 7.8, 15.0, 66.0 # fixed shovel blade
 
 def box(x, y, z, cx=0, cy=0, z0=0):
     return cq.Workplane("XY").box(x, y, z, centered=(True, True, False)).translate((cx, cy, z0))
+def xbox(x0, x1, y0, y1, z0, z1):
+    return box(x1 - x0, y1 - y0, z1 - z0, cx=(x0 + x1) / 2, cy=(y0 + y1) / 2, z0=z0)
 def xcyl(d, length, y, z, x0):
     return cq.Workplane("YZ").circle(d / 2).extrude(length).translate((x0, y, z))
 def ycyl(d, length, x, z, y0):
+    """cylinder along +Y starting at y0"""
     return cq.Workplane("XZ").circle(d / 2).extrude(-length).translate((x, y0, z))
 def zcyl(d, h, x, y, z0):
     return cq.Workplane("XY").circle(d / 2).extrude(h).translate((x, y, z0))
+def soft(shape, sel, r):
+    """round edges if the kernel can, otherwise leave them square"""
+    try: return shape.edges(sel).fillet(r)
+    except Exception: return shape
 
 # Left motor drives the rear wheel, right motor drives the front wheel.
 # Two N20 motors are too long to sit on one axle in a 34 mm wide body.
@@ -65,74 +84,84 @@ MOTORS = ((-WHEELBASE / 2, 1), (WHEELBASE / 2, -1))     # (x, side of the driven
 
 # ---------------- chassis tub ----------------
 def chassis():
-    tub = box(TUB_L, TUB_W, WALL_TOP - FLOOR_Z, z0=FLOOR_Z).cut(box(TUB_L - 2 * WALL, TUB_W_IN, WALL_TOP, z0=FLOOR_Z + FLOOR_T))
+    outer = soft(box(TUB_L, TUB_W, BAY_TOP - FLOOR_Z, z0=FLOOR_Z), "|Z", 3.0)
+    outer = outer.cut(xbox(XS, TUB_L, -TUB_W, TUB_W, STEP_TOP, BAY_TOP + 1))            # low step at the front
+    tub = outer.cut(soft(box(TUB_L - 2 * WALL, TUB_W_IN, BAY_TOP, z0=FLOOR_Z + FLOOR_T), "|Z", 1.5))
     for mx, sy in MOTORS:
         # motor shaft hole on the driven side, M3 idler-axle pilot hole on the other side
         tub = tub.cut(ycyl(4.6, WALL + 2, mx, AXLE_Z, TUB_W_IN / 2 - 1 if sy > 0 else -TUB_W / 2 - 1))
         tub = tub.cut(ycyl(2.5, WALL + 2, mx, AXLE_Z, TUB_W_IN / 2 - 1 if sy < 0 else -TUB_W / 2 - 1))
-        # rib between motor gearbox and battery: holds the motor square and stops the battery sliding
-        rx = mx - 7.4 if mx > 0 else mx + 7.4
-        tub = tub.union(box(2.0, 10, 9, cx=rx, cy=sy * (TUB_W_IN / 2 - 5), z0=FLOOR_Z + FLOOR_T - 0.1))
-    # lid screw bosses at the rear corners (M2 self-tap, 1.6 mm pilot)
+        # saddle under the gearbox with a lip toward the end wall
+        pad = box(13, 11, AXLE_Z - 5 - FLOOR_Z - FLOOR_T + 0.1, cx=mx, cy=sy * (TUB_W_IN / 2 - 5.5), z0=FLOOR_Z + FLOOR_T - 0.1)
+        tub = tub.union(pad)
+    # tilt servo drops into a notch in the left wall; pivot boss for the other head arm on the right wall
+    tub = tub.cut(box(23.4, WALL + 2, BAY_TOP - (PZ - 6.4) + 1, cx=PX - 5.4, cy=TUB_W / 2 - WALL / 2, z0=PZ - 6.4))
+    boss = ycyl(8, 6.6, PX, PZ, -TUB_W / 2 - 6.3).cut(ycyl(2.5, 12, PX, PZ, -TUB_W / 2 - 8))
+    tub = tub.union(boss)
+    # front wall: lid tab screws (M2), shovel screws (M2)
     for sy in (-1, 1):
-        tub = tub.union(box(3, 4, 10, cx=-XI + 1.5, cy=sy * (TUB_W_IN / 2 - 2), z0=WALL_TOP - 10))
-        tub = tub.cut(zcyl(1.6, 9, -XI + 1.5, sy * (TUB_W_IN / 2 - 2), WALL_TOP - 8))
-    # front wall: lid tab screws (M2), shovel screws (M2), distance-sensor window, cable notch
-    for sy in (-1, 1):
-        tub = tub.cut(xcyl(2.2, WALL + 2, sy * 15, WALL_TOP - 4, XI - 1))
-    for y in (-12, 8):
-        tub = tub.cut(xcyl(1.6, WALL + 2, y, 14, XI - 1))
-    tub = tub.cut(box(WALL + 2, 8, 5, cx=XI + WALL / 2, cy=TOF_Y, z0=TOF_Z - 2.5))
-    tub = tub.cut(box(WALL + 2, 9, 5, cx=XI + WALL / 2, cy=-8, z0=18.5))
-    # rear wall: USB-C charging slot
-    tub = tub.cut(box(WALL + 2, 10, 4.4, cx=-XI - WALL / 2, cy=8.5, z0=DECK_Z + 1.0))
+        tub = tub.cut(xcyl(2.2, WALL + 2, sy * 12, STEP_TOP - 4, XI - 1))
+    for y in (-5, 5):
+        tub = tub.cut(xcyl(1.6, WALL + 2, y, 13, XI - 1))
+    # rear wall: USB-C charging slot, lid tab screw (M2)
+    tub = tub.cut(box(WALL + 2, 10, 4.4, cx=-XI - WALL / 2, cy=8.5, z0=DECK_Z + 0.2))
+    tub = tub.cut(xcyl(2.2, WALL + 2, 4, BAY_TOP - 4, -XI - WALL - 1))
     # battery strap slots in the floor
     for x in (-10, 10):
         tub = tub.cut(box(2, 24, FLOOR_T + 2, cx=x, z0=FLOOR_Z - 1))
-    # shell attachment ears on the wall tops (M2) - bolt your shell here
-    for x in (-20, 0):
-        for sy in (-1, 1):
-            ear = box(7, 5, 3, cx=x, cy=sy * (TUB_W / 2 + 2.5), z0=WALL_TOP - 3)
-            tub = tub.union(ear.cut(zcyl(1.6, 5, x, sy * (TUB_W / 2 + 2.8), WALL_TOP - 4)))
+    # shell attachment ears on the bay wall tops (M2) - bolt your shell here
+    for x, sy in ((-30, 1), (-30, -1), (-2, -1)):
+        ear = box(7, 5, 3, cx=x, cy=sy * (TUB_W / 2 + 2.5), z0=BAY_TOP - 3)
+        tub = tub.union(ear.cut(zcyl(1.6, 5, x, sy * (TUB_W / 2 + 2.8), BAY_TOP - 4)))
     return tub
 
-# ---------------- top: lid with the fixed head ----------------
+# ---------------- top: bay lid, riser and step plate in one piece ----------------
 def top():
-    hx = HEAD_X0 + HEAD_L / 2
-    lid = box(TUB_L, TUB_W, LID_T, z0=WALL_TOP)
-    head = box(HEAD_L, HEAD_W, HEAD_H, cx=hx, z0=HEAD_Z).cut(box(HEAD_L - 4, HEAD_W - 4, HEAD_H - 1.9, cx=hx, z0=HEAD_Z - 0.1))
-    t = lid.union(head)
-    # wire opening from the body up into the head
-    t = t.cut(box(18, 26, LID_T + 2, cx=hx - 2, z0=WALL_TOP - 1))
-    # display window: slightly larger than the active area
-    w = DSP["window"]
-    if w[0] == "rect":
-        t = t.cut(box(6, w[1], w[2], cx=HEAD_X0 + HEAD_L - 1, z0=LCD_Z - w[2] / 2))
-    else:
-        t = t.cut(xcyl(w[1], 6, 0, LCD_Z, HEAD_X0 + HEAD_L - 4))
-    # speaker grille in the back of the head, microphone hole in the top
-    for gy in (-6, -3, 0, 3, 6):
-        for gz in (-6, -3, 0, 3, 6):
-            if abs(gy) + abs(gz) <= 9:
-                t = t.cut(xcyl(1.6, 6, gy, LCD_Z + gz, HEAD_X0 - 2))
-    t = t.cut(zcyl(1.5, 6, hx + DSP["mic_dx"], 0, HEAD_Z + HEAD_H - 4))
-    t = t.cut(box(4.8, 9, LID_T + 2, cx=-22, cy=8.5, z0=WALL_TOP - 1))          # slide switch, lever up
-    # rear lid screws (M2 clearance)
+    lid = soft(box(TUB_L / 2 + XS, TUB_W, LID_T, cx=(XS - TUB_L / 2) / 2, z0=BAY_TOP), "|Z", 3.0)
+    riser = xbox(XS, XS + WALL, -TUB_W / 2, TUB_W / 2, STEP_TOP, BAY_TOP + LID_T)
+    step = xbox(XS, TUB_L / 2, -TUB_W / 2, TUB_W / 2, STEP_TOP, STEP_TOP + LID_T)
+    t = lid.union(riser).union(step)
+    t = t.cut(box(WALL + 2, 16, 9, cx=XS + WALL / 2, z0=STEP_TOP + LID_T + 3))             # cable slot from the bay to the head
+    t = t.cut(box(4.8, 9, LID_T + 2, cx=-31, cy=8.5, z0=BAY_TOP - 1))                       # slide switch, lever up
+    # rear tab behind the rear wall, front tabs behind the front wall: screwed from outside (M2)
+    tab = xbox(-XI, -XI + 2.5, 2, 6, BAY_TOP - 8, BAY_TOP).cut(xcyl(1.6, 5, 4, BAY_TOP - 4, -XI - 1))
+    t = t.union(tab)
     for sy in (-1, 1):
-        t = t.cut(zcyl(2.2, LID_T + 2, -XI + 1.5, sy * (TUB_W_IN / 2 - 2), WALL_TOP - 1))
-    # front tabs that drop behind the tub front wall, screwed from the front
-    for sy in (-1, 1):
-        tab = box(3, 4, 8, cx=XI - 1.6, cy=sy * 15, z0=WALL_TOP - 8)
-        t = t.union(tab.cut(xcyl(1.6, 5, sy * 15, WALL_TOP - 4, XI - 4)))
+        tab = xbox(XI - 2.0, XI, sy * 12 - 2, sy * 12 + 2, STEP_TOP - 8, STEP_TOP).cut(xcyl(1.6, 5, sy * 12, STEP_TOP - 4, XI - 3))
+        t = t.union(tab)
     return t
+
+# ---------------- head: tilts on the servo, holds display, camera brain, speaker ----------------
+def head():
+    hx = (HEAD_X0 + HEAD_X1) / 2
+    shell = soft(box(HEAD_L, HEAD_W, HEAD_H, cx=hx, z0=HEAD_Z), "|X", 5.0)
+    shell = soft(shell, ">X", 2.0)
+    inner = soft(xbox(HEAD_X0 - 1, HEAD_X1 - 2, -HEAD_W / 2 + 2, HEAD_W / 2 - 2, HEAD_Z + 2, HEAD_Z + HEAD_H - 2), "|X", 3.0)
+    h = shell.cut(inner)                                    # open at the back: your shell closes it
+    w = DSP["window"]                                       # display window, slightly larger than the active area
+    if w[0] == "rect": h = h.cut(box(6, w[1], w[2], cx=HEAD_X1 - 1, z0=LCD_Z - w[2] / 2))
+    else: h = h.cut(xcyl(w[1], 6, 0, LCD_Z, HEAD_X1 - 4))
+    h = h.cut(xcyl(8.0, 6, 0, CAM_Z, HEAD_X1 - 4))          # CAMERA window, above the display
+    h = h.cut(xcyl(1.5, 6, 7.5, CAM_Z, HEAD_X1 - 4))        # microphone hole (the microphone is on the camera board)
+    for gx in (-6, -3, 0, 3, 6):                            # speaker grille in the left cheek
+        for gz in (-6, -3, 0, 3, 6):
+            if abs(gx) + abs(gz) <= 9:
+                h = h.cut(ycyl(1.6, 6, HEAD_X0 + 13 + gx, HEAD_Z + 13 + gz, HEAD_W / 2 - 4))
+    # two arms reach back to the tilt axis: left one bolts to the servo, right one turns on an M3 screw
+    for sy, bore in ((1, 5.2), (-1, 3.2)):
+        y0 = 25.6 if sy > 0 else -28.6
+        arm = ycyl(10, 3, PX, PZ, y0).union(xbox(PX, HEAD_X0 + 8, y0, y0 + 3, PZ - 5, PZ + 5))
+        web = xbox(HEAD_X0 + 1, HEAD_X0 + 8, min(sy * (HEAD_W / 2 - 1), sy * 28.6), max(sy * (HEAD_W / 2 - 1), sy * 28.6), PZ - 5, PZ + 5)
+        h = h.union(arm).union(web).cut(ycyl(bore, 5, PX, PZ, y0 - 1))
+    return h
 
 # ---------------- fixed shovel (also carries the two edge sensors) ----------------
 def shovel():
     x0 = TUB_L / 2
     flange = box(2, 30, 9.5, cx=x0 + 1, cy=-2, z0=7.5)
-    for y in (-12, 8):
-        flange = flange.cut(xcyl(2.2, 4, y, 14, x0 - 1))
-    shelf = box(BLADE_X - x0 - 2, BLADE_W, 2.5, cx=(x0 + 2 + BLADE_X) / 2, z0=7.5)
+    for y in (-5, 5):
+        flange = flange.cut(xcyl(2.2, 4, y, 13, x0 - 1))
+    shelf = xbox(x0 + 2, BLADE_X, -TUB_W / 2, TUB_W / 2, 7.5, 10).union(xbox(EDGE_X - 8.5, BLADE_X, -BLADE_W / 2, BLADE_W / 2, 7.5, 10))
     for sy in (-1, 1):
         shelf = shelf.cut(box(12, 8, 6, cx=EDGE_X, cy=sy * EDGE_Y, z0=6))          # sensor looks down through here
         shelf = shelf.cut(zcyl(2.5, 6, EDGE_X, sy * (EDGE_Y - 10), 6))             # sensor board screw (M3 self-tap)
@@ -143,28 +172,15 @@ def shovel():
 
 # ---------------- small bought parts that V1 does not have ----------------
 def track_v2():
-    """Printed drive wheel and idler with a rubber band or printed TPU belt. Origin: midway between axles, on the axle line."""
-    parts = []
-    for x in (-WHEELBASE / 2, WHEELBASE / 2):
-        for s, col in dc.wheel(WHEEL_D, TRACK_W - 4):
-            parts.append((s.translate((x, 0, 0)), "white" if col == "steel" else col))
-    belt = (cq.Workplane("XZ").slot2D(WHEELBASE + WHEEL_D + 2 * TRACK_T, WHEEL_D + 2 * TRACK_T).extrude(-TRACK_W)
-            .cut(cq.Workplane("XZ").slot2D(WHEELBASE + WHEEL_D, WHEEL_D).extrude(-TRACK_W - 2).translate((0, 1, 0))).translate((0, -TRACK_W / 2, 0)))
-    parts.append((belt, "rubber"))
-    return asm("track_v2", parts)
+    a = dc.track_set(WHEELBASE, WHEEL_D, TRACK_W, TRACK_T, bogies=0)
+    a.name = "track_v2"
+    return a
 
 def lipo_1s():
     """Origin: centre of footprint, Z=0 underside. Wires leave toward -X."""
     cell = B(BAT[0] - 4, BAT[1], BAT[2], cx=2).edges("|X").fillet(2.0)
     cap = B(4, BAT[1] - 2, BAT[2] - 3, cx=-BAT[0] / 2 + 2, z0=1.5)
     return asm("battery_lipo_1s", [(cell, "steel"), (cap, "yellow")])
-
-def esp32_s3_supermini():
-    parts = [(B(22.5, 18, 1.2), "pcb_black"), (B(8.9, 7.4, 3.2, cx=-8.5, z0=1.2), "steel"), (B(7, 7, 0.9, cx=3, z0=1.2), "black"), (B(5, 2, 1.2, cx=9.5, z0=1.2), "white")]
-    for sy in (-1, 1):
-        for s, col in header(8, along="x"):
-            parts.append((s.translate((0, sy * 7.62, 1.2)), col))
-    return asm("esp32_s3_supermini", parts)
 
 def lcd_096():
     """Origin: centre of the glass front face, the screen looks toward +X. 30 x 24 mm module used landscape."""
@@ -208,6 +224,30 @@ def oled_096():
         pins = p if pins is None else pins.union(p)
     return asm("oled_0in96_ssd1306", [(pcb, "pcb_blue"), (glass, "black"), (scr, "screen"), (strip, "black"), (pins, "gold")])
 
+def xiao_s3_sense():
+    """Seeed XIAO ESP32S3 Sense: brain, OV2640 camera and microphone in one 21 x 17.5 mm stack.
+    Origin: tip of the camera lens, looking toward +X. Boards stand upright, header pins point back."""
+    cam = B(4.5, 8.5, 8.5, cx=-3.75, z0=-4.25)
+    lens = CX(6.5, 1.5, x0=-1.5).union(CX(4.0, 0.2, x0=-0.2))
+    sense = B(1.2, 21, 17.5, cx=-6.6, z0=-8.75)
+    link = B(3.0, 12, 3.0, cx=-8.7, cy=-3, z0=-1.5)
+    usb = B(3.0, 7.3, 8.9, cx=-8.7, cy=7.4, z0=-4.45)
+    xiao = B(1.2, 21, 17.5, cx=-10.8, z0=-8.75)
+    can = B(2.0, 9, 11, cx=-12.4, cy=-4, z0=-5.5)
+    parts = [(cam, "black"), (lens, "glass"), (sense, "pcb_black"), (link, "white"), (usb, "steel"), (xiao, "pcb_black"), (can, "steel")]
+    for sz in (-7.62, 7.62):
+        strip = B(2.5, 17.8, 2.5, cx=-12.65, z0=sz - 1.25)
+        pins = None
+        for i in range(7):
+            q = B(8.5, 0.64, 0.64, cx=-15.5, cy=-7.62 + 2.54 * i, z0=sz - 0.32)
+            pins = q if pins is None else pins.union(q)
+        parts += [(strip, "black"), (pins, "gold")]
+    return asm("xiao_esp32s3_sense_camera", parts)
+
+def io_expander():
+    """PCF8574 I2C expander, small breakout. Gives 8 extra slow pins over the two I2C wires."""
+    return small_board("pcf8574_io_expander", 20, 16, "pcb_red", [(7.5, 5.3, 1.6, 0, 0, "black"), (2, 1.2, 1, 6, 3, "dark")], pins=[(6, 0, -6.6, "x"), (6, 0, 6.6, "x")])
+
 def speaker_20mm():
     """Origin: centre of the front rim, sound comes out toward -X."""
     rim = CX(20, 1.0, x0=0).cut(CX(17, 3, x0=-1))
@@ -226,12 +266,14 @@ L = cq.Location
 def T(x, y, z): return L(cq.Vector(x, y, z))
 def R(axis, deg): return L(cq.Vector(0, 0, 0), cq.Vector(*axis), deg)
 RX, RY, RZ = (1, 0, 0), (0, 1, 0), (0, 0, 1)
+HEAD_TILT = T(PX, 0, PZ) * R(RY, -TILT) * T(-PX, 0, -PZ)      # everything in the head moves with this
 
 placed = []
 def put(name, a, loc): placed.append((name, a, loc))
+def hput(name, a, loc): placed.append((name, a, HEAD_TILT * loc))
 # groups in the assembly tree, so a CAD program shows folders instead of one long flat list
-GROUPS = {"track": "drive", "motor": "drive", "battery": "power", "usb_c": "power", "power_": "power", "esp32": "brain",
-          "speaker": "voice", "microphone": "voice", "face_": "face", "distance": "senses", "edge_": "senses"}
+GROUPS = {"track": "drive", "motor": "drive", "battery": "power", "usb_c": "power", "power_": "power", "brain": "brain_and_camera", "io_": "brain_and_camera",
+          "speaker": "voice", "face_": "face", "edge_": "senses", "servo": "head_tilt"}
 def group_of(name):
     return next(g for k, g in GROUPS.items() if name.startswith(k))
 
@@ -240,22 +282,23 @@ for sy, tag in ((1, "left"), (-1, "right")):
 put("motor_left", dc.motor_n20(), T(MOTORS[0][0], TUB_W_IN / 2, AXLE_Z))
 put("motor_right", dc.motor_n20(), T(MOTORS[1][0], -TUB_W_IN / 2, AXLE_Z) * R(RZ, 180))
 put("battery", lipo_1s(), T(0, 0, FLOOR_Z + FLOOR_T))
-put("usb_c_charger", charger_boost_1s(), T(-XI + 13.5, 8.5, DECK_Z))
-put("power_switch", slide_switch(), T(-22, 8.5, HEAD_Z) * R(RY, 90))
-put("motor_driver", dc.drv8833_driver(), T(-XI + 12.5, -9, DECK_Z))
-put("esp32_s3_supermini", esp32_s3_supermini(), T(2, -8, DECK_Z))
-put("speaker_amplifier", dc.max98357_amp(), T(23.5, -8, DECK_Z))
-put("distance_sensor", dc.vl53l0x_tof(), T(XI - 3, TOF_Y, TOF_Z) * R(RY, 90) * R(RZ, 90))
-put("face_display", {"st7735_096": lcd_096, "gc9a01_128_round": lcd_128_round, "ssd1306_096_oled": oled_096}[DISPLAY](), T(HEAD_X0 + HEAD_L - 2, 0, LCD_Z))
-put("speaker", speaker_20mm(), T(HEAD_X0 + 2.1, 0, LCD_Z))
-put("microphone", dc.inmp441_mic(), T(HEAD_X0 + HEAD_L / 2 + DSP["mic_dx"], 0, HEAD_Z + HEAD_H - 5.4))
+put("usb_c_charger", charger_boost_1s(), T(-XI + 13.5, 8.5, DECK_Z - 0.6))
+put("power_switch", slide_switch(), T(-31, 8.5, BAY_TOP + LID_T) * R(RY, 90))
+put("motor_driver", dc.drv8833_driver(), T(-XI + 9.75, -9, DECK_Z))
+put("io_expander", io_expander(), T(-XI + 29.5, -9, DECK_Z))
+put("servo_tilt", dc.servo_mg90s(horn=False), T(PX, TUB_W_IN / 2 - 2.5, PZ) * R(RX, -90))
+hput("face_display", {"st7735_096": lcd_096, "gc9a01_128_round": lcd_128_round, "ssd1306_096_oled": oled_096}[DISPLAY](), T(HEAD_X1 - 2, 0, LCD_Z))
+hput("brain_camera", xiao_s3_sense(), T(HEAD_X1 - 1.5, 0, CAM_Z))
+hput("speaker", speaker_20mm(), T(HEAD_X0 + 13, HEAD_W / 2 - 2.4, HEAD_Z + 13) * R(RZ, -90))
+hput("speaker_amplifier", dc.max98357_amp(), T(HEAD_X0 + 11.5, -HEAD_W / 2 + 11.5, HEAD_Z + 2.2))
 put("edge_sensor_front_left", dc.tcrt5000_module(), T(EDGE_X, EDGE_Y, EDGE_Z))
 put("edge_sensor_front_right", dc.tcrt5000_module(), T(EDGE_X, -EDGE_Y, EDGE_Z) * R(RZ, 180))
 
 # .clean() merges faces that lie on the same plane or cylinder, so each wall is one face to push or pull
 parts = {
     "v2_frame_chassis": (chassis().clean(), (0.62, 0.72, 0.74)),
-    "v2_frame_top": (top().clean(), (0.72, 0.82, 0.84)),
+    "v2_frame_top": (top().clean(), (0.52, 0.64, 0.68)),
+    "v2_frame_head": (head().clean().rotate((PX, 0, PZ), (PX, 1, PZ), -TILT), (0.72, 0.82, 0.84)),
     "v2_frame_shovel": (shovel().clean(), (0.85, 0.45, 0.38)),
 }
 
@@ -264,7 +307,7 @@ fa = cq.Assembly(name="dimer_v2_frame_only")
 sub = {g: cq.Assembly(name=g) for g in ["printed_frame"] + list(dict.fromkeys(GROUPS.values()))}
 for name, (shape, col) in parts.items():
     sub["printed_frame"].add(shape, name=name, color=cq.Color(*col)); fa.add(shape, name=name, color=cq.Color(*col))
-    if not VARIANT or name == "v2_frame_top":
+    if not VARIANT or name == "v2_frame_head":
         cq.exporters.export(shape, os.path.join(OUT, name + ".step"))
 for name, a, loc in placed:
     sub[group_of(name)].add(a, name=name, loc=loc)
@@ -321,5 +364,5 @@ for i in range(len(names)):
         try: vol = a.intersect(b).Volume()
         except Exception: vol = 0
         if {names[i][5:8], names[j][5:8]} == {"tra", "mot"}: continue      # motor shaft is a press fit in the wheel hub
-        if vol > 0.5: bad += 1; print("CLASH %s x %s: %.1f mm3" % (names[i], names[j], vol))
+        if vol > 0.5: bad += 1; bx = a.intersect(b).BoundingBox(); print("CLASH %s x %s: %.1f mm3 at x %.0f..%.0f y %.0f..%.0f z %.0f..%.0f" % (names[i], names[j], vol, bx.xmin, bx.xmax, bx.ymin, bx.ymax, bx.zmin, bx.zmax))
 print("clashes over 0.5 mm3:", bad)
