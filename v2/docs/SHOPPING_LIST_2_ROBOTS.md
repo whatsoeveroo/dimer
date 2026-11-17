@@ -1,5 +1,7 @@
 # Dimer V2 shopping list: 2 robots (prototype + final) plus spares
 
+**Changed 17 Nov: now one robot plus one spare of each part.** The Parts Tracker page has the current quantities (motors 3, XIAO 2, displays 2, batteries 2, one pack of servos, sensors and speakers, 2 assembled boards). The quantities below are the older two-robot plan.
+
 The ☐ boxes are for printing or editing. The live version, where you click the boxes and they save, is the Parts Tracker page: https://claude.ai/artifact/USBwgfyAA6Et9oBisdf7PH
 
 Checked on AliExpress (Korea storefront) on 17 Nov 2026, then reviewed by GPT-6 Astra (Extra High). Prices are what the listing showed that day and will move. "Pick" is the option to choose on the listing.
