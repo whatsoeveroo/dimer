@@ -184,6 +184,8 @@ def shovel():
     flange = box(2, 30, 9.5, cx=x0 + 1, cy=-2, z0=7.5)
     for y in (-5, 5):
         flange = flange.cut(xcyl(2.2, 4, y, 13, x0 - 1))
+    for y in (-12, 12):                                                             # room for the lid's front screw heads
+        flange = flange.cut(xcyl(4.6, 4, y, STEP_TOP - 4, x0 - 1))
     shelf = xbox(x0 + 2, BLADE_X, -TUB_W / 2, TUB_W / 2, 7.5, 10).union(xbox(EDGE_X - 8.5, BLADE_X, -BLADE_W / 2, BLADE_W / 2, 7.5, 10))
     for sy in (-1, 1):
         shelf = shelf.cut(box(12, 8, 6, cx=EDGE_X, cy=sy * EDGE_Y, z0=6))          # sensor looks down through here
@@ -327,6 +329,32 @@ hput("speaker_amplifier", dc.max98357_amp(), T(HEAD_X0 + 11.5, -HEAD_W / 2 + 11.
 put("edge_sensor_front_left", dc.tcrt5000_module(), T(EDGE_X, EDGE_Y, EDGE_Z))
 put("edge_sensor_front_right", dc.tcrt5000_module(), T(EDGE_X, -EDGE_Y, EDGE_Z) * R(RZ, 180))
 
+# ---------------- screws: all self-tapping into printed holes, one nut on the left idler ----------------
+def screw(d, length, hd, hh, at, v):
+    """pan-head screw; 'at' is where the head sits on the surface, v is the way the shank points (+x, -x, +y, -y, -z)"""
+    s = cq.Workplane("XY").circle(d / 2).extrude(-length).union(cq.Workplane("XY").circle(hd / 2).extrude(hh))
+    rot = {"+x": (RY, -90), "-x": (RY, 90), "+y": (RX, 90), "-y": (RX, -90), "-z": (RZ, 0)}[v]
+    return s.val().moved(T(*at) * R(rot[0], rot[1]))
+def fasteners(items):
+    a = cq.Assembly(name="screws")
+    for i, sh in enumerate(items): a.add(sh, name="s%d" % i, color=cq.Color(0.55, 0.57, 0.6))
+    return a
+M2, M3 = (2.0, 3.8, 1.4), (3.0, 5.5, 1.8)
+def sc(size, length, at, v): d, hd, hh = size; return screw(d, length, hd, hh, at, v)
+hx_, hy_ = board_to_robot(*BOARD["holes"][0])
+SCREWS = {
+    "screws_lid": [sc(M2, 6, (-TUB_L / 2, 4, BAY_TOP - 4), "+x")] + [sc(M2, 4, (TUB_L / 2, y, STEP_TOP - 4), "-x") for y in (-12, 12)],
+    "screws_shovel": [sc(M2, 6, (TUB_L / 2 + 2, y, 13), "-x") for y in (-5, 5)],
+    "screw_board": [sc(M2, 6, (hx_, hy_, DECK_Z + 1.6), "-z")],
+    "screws_idler_axle": [sc(M3, 20, (MOTORS[0][0], -(TRACK_Y + TRACK_W / 2 + 0.5), AXLE_Z), "+y"),
+                          sc(M3, 20, (MOTORS[1][0], TRACK_Y + TRACK_W / 2 + 0.5, AXLE_Z), "-y"),
+                          cq.Workplane("XZ").polygon(6, 6.2).extrude(2.4).val().moved(T(MOTORS[1][0], TUB_W_IN / 2, AXLE_Z))],   # M3 nut inside
+    "screw_head_pivot": [sc(M3, 10, (PX, -28.6, PZ), "+y")],
+    "screws_edge_sensor": [sc(M3, 6, (EDGE_X, sy * (EDGE_Y - 10), EDGE_Z + 1.6), "-z") for sy in (-1, 1)],
+}
+for n, items in SCREWS.items(): put(n, fasteners(items), T(0, 0, 0))
+GROUPS["screw"] = "screws"
+
 # .clean() merges faces that lie on the same plane or cylinder, so each wall is one face to push or pull
 parts = {
     "v2_frame_chassis": (chassis().clean(), (0.62, 0.72, 0.74)),
@@ -396,6 +424,8 @@ for i in range(len(names)):
         if ba.xmin > bb2.xmax or bb2.xmin > ba.xmax or ba.ymin > bb2.ymax or bb2.ymin > ba.ymax or ba.zmin > bb2.zmax or bb2.zmin > ba.zmax: continue
         try: vol = a.intersect(b).Volume()
         except Exception: vol = 0
-        if {names[i][5:8], names[j][5:8]} == {"tra", "mot"}: continue      # motor shaft is a press fit in the wheel hub
+        if {names[i][5:8], names[j][5:8]} == {"tra", "mot"}: continue
+        if any(n.startswith("part_screw") for n in (names[i], names[j])) and any(n.startswith(("v2_frame", "part_track", "part_edge")) for n in (names[i], names[j])):
+            continue   # screws bite into their pilot holes, the idler screw is the wheel's axle, and the sensor model's chip block sits over its real mounting hole      # motor shaft is a press fit in the wheel hub
         if vol > 0.5: bad += 1; bx = a.intersect(b).BoundingBox(); print("CLASH %s x %s: %.1f mm3 at x %.0f..%.0f y %.0f..%.0f z %.0f..%.0f" % (names[i], names[j], vol, bx.xmin, bx.xmax, bx.ymin, bx.ymax, bx.zmin, bx.zmax))
 print("clashes over 0.5 mm3:", bad)

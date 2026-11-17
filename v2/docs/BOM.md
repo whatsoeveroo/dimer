@@ -16,10 +16,11 @@ Prices are rough estimates in USD, not live quotes. Links are AliExpress searche
 | Power | **Dimer V2 power board**, made and fully soldered by JLCPCB (`v2/pcb/`) | 1 | 12 to 20 | see `v2/pcb/README.md` | USB-C charging, on/off switch, 5 V and 3.3 V supplies, motor driver and I/O expander on one 39.5 x 33 mm board. About $20 each when you order 5, about $12 each when you order 10. |
 | Wiring | Dupont jumper wires, female-female, 10 and 20 cm | 1 | 3 | [search](https://www.aliexpress.com/w/wholesale-dupont-jumper-wire-female-to-female-20cm.html) | The head moves, so its wires are 20 cm and loop over the tilt axis. |
 | Wiring | Dupont splitter cables, 1 female to 3 female | 3 | 3 | [search](https://www.aliexpress.com/w/wholesale-dupont-1-to-3-female-splitter.html) | In the head, no soldering: 5 V from the board to the XIAO and the amplifier; the XIAO 3V3 to the screen's VCC, RES and BLK; GND to the screen GND, screen CS and amplifier GND. |
-| Hardware | M2 and M3 self-tapping screw kit | 1 | 4 | [search](https://www.aliexpress.com/w/wholesale-M2-M3-self-tapping-screw-kit.html) | Lid, shovel, sensors, idler axles, head pivot. |
+| Hardware | M2 self-tapping pan-head screw kit (4 and 6 mm) | 1 | 2 | [search](https://www.aliexpress.com/w/wholesale-m2-self-tapping-screw-pan-head-assortment-kit.html) | Needs 2 x M2 x 4 and 4 x M2 x 6: lid, shovel, power board. |
+| Hardware | M3 screw and nut kit (6, 10 and 20 mm) | 1 | 3 | [search](https://www.aliexpress.com/w/wholesale-m3-pan-head-screw-nut-assortment-kit.html) | Needs 2 x M3 x 6, 1 x M3 x 10, 2 x M3 x 20 and 1 nut: edge sensors, head pivot, idler axles. |
 | Hardware | Double-sided foam tape | 1 | 2 | [search](https://www.aliexpress.com/w/wholesale-double-sided-foam-tape.html) | Holds the amplifier and the brain in the head. |
 
-**Estimated total: about $67 to $75 per robot**, before shipping (the range is the power board: $20 each in a batch of 5, $12 each in a batch of 10). Still inside the $80 to $90 target.
+**Estimated total: about $68 to $76 per robot**, before shipping (the range is the power board: $20 each in a batch of 5, $12 each in a batch of 10). Still inside the $80 to $90 target.
 
 ## Changes from the first V2 list
 
@@ -42,3 +43,21 @@ Prices are rough estimates in USD, not live quotes. Links are AliExpress searche
 - Head wiring: three 1-to-3 dupont splitters share 5 V, 3V3 and GND inside the head.
 - XIAO: it comes without pins. Order it with headers soldered, or ask a shop (14 joints).
 - Everything else is a plug-in jumper wire.
+
+## Screws: where each one goes
+
+Every screw cuts its own thread into a printed hole that is slightly smaller than the screw. Turn until snug, then stop. One small cross-head screwdriver does all of them. The 3D build page shows them in grey under "Screws".
+
+| Where | Screw | How |
+|---|---|---|
+| Lid | 1 x M2 x 6 at the back, 2 x M2 x 4 at the front | From outside through the end walls into the lid tabs. Front ones before the shovel goes on (the shovel has clearance holes over their heads). |
+| Shovel | 2 x M2 x 6 | From the front, through the shovel into the front wall. |
+| Power board | 1 x M2 x 6 | Down through the board hole at the rear right into the pillar. |
+| Idler wheels | 2 x M3 x 20, 1 nut | From outside through the free wheel (it spins on the screw) into the side wall. Nut inside the left wall. Leave the wheel free to turn. |
+| Head pivot | 1 x M3 x 10 | From outside the right head arm into the boss on the right wall, then back off a quarter turn. |
+| Edge sensors | 2 x M3 x 6 | Down through each sensor's hole into the shovel shelf. |
+| Servo | screws from the servo bag | Two ear screws hold the servo; the horn screws fix the horn to the left head arm. |
+
+## Soldering iron
+
+Not needed if you get the pre-soldered XIAO and motors with plugs. If either is not on offer, a basic 60 W soldering iron kit (about $10 to $15) covers it: 14 joints for the XIAO pins, 4 for bare motor wires.

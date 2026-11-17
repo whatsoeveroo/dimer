@@ -12,7 +12,7 @@ A second, smaller Dimer. V1 in the folders above is unchanged and still builds o
 | Electronics | custom main board | one small power board made by JLCPCB, jumper wires to the head |
 | Tracks | bought track set | printed 22 mm wheels with a rubber band or TPU belt |
 | Edge sensors | 4 | 2, front only |
-| Parts cost | about $134 | about $67 to $75 |
+| Parts cost | about $134 | about $68 to $76 |
 
 ![V2 preview](docs/assembly_preview.png)
 
