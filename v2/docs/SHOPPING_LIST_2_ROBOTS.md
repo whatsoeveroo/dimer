@@ -37,6 +37,7 @@ About 30 joints per robot, all on big pins. Practise on a spare jumper first.
 ## Battery notes
 
 - The plug looks like PH 2.0 in the photos, but the listing does not say so and sellers wire polarity differently. Before plugging in, check the red wire lines up with + on the board. If the plug does not fit, a local shop can swap it, or buy a locally stocked 803040 with a PH 2.0 plug.
+- Faster local option: Coms 803040 3.7 V 1000 mAh with protection circuit, KC certified, at DeviceMart: https://www.devicemart.co.kr/goods/view?no=15808399 (₩4,300; 3 to 4 days to prepare, then 1 to 3 days by courier). Its leads look bare in the photo, so plan to fit a JST PH 2.0 plug.
 - The listing showed delivery around 27 Nov to 3 Dec, slower than the other parts, because LiPo cells ship by restricted routes. If you need it sooner, buy it locally.
 
 ## From the GPT-6 Astra review
