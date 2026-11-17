@@ -1,5 +1,7 @@
 # Dimer V2 buying list (one robot)
 
+> For the two-robot order with exact AliExpress listings, quantities and the soldering you will need, see [SHOPPING_LIST_2_ROBOTS.md](SHOPPING_LIST_2_ROBOTS.md).
+
 Prices are rough estimates in USD, not live quotes. Links are AliExpress searches. Where a seller offers "with pins soldered" or "welded headers", pick that option.
 
 | Group | Part | Qty | Est. $ | Search | Why |

@@ -11,8 +11,8 @@ that is not in the head:
   USB-C charging (TP4056, 580 mA) with red / green lights you can see through
   the rear wall, the power switch (it switches a P-MOSFET, so the small switch
   never carries motor current), the 5 V boost (MT3608) for servo, brain,
-  amplifier, the 3.3 V regulator (AMS1117) for the expander and edge sensors,
-  the DRV8833 motor driver and the PCF8574 I2C expander.
+  amplifier, the 3.3 V regulator (AP2112K) for the expander and edge sensors,
+  the DRV8833 motor driver and the PCA9534 I2C expander.
 The XIAO in the head reaches it over 8 jumper wires (5V, GND, SDA, SCL,
 PWM L, PWM R, SERVO, GND).
 
