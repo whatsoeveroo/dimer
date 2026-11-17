@@ -115,24 +115,24 @@ c10u("C2", 13.3, 12.4, 0, "VBAT", "GND")
 res("R3", "3k", 17.2, 7.6, 90, "PROG", "GND", "C4211")      # 1200 V / 3 k = 0.4 A: cooler chip, gentle on a 1000 mAh cell
 LED = ("LED_SMD.pretty", "LED_0603_1608Metric")
 smd(*LED, "D1", "LED red 0603", 2.9, 0.95, 0, {"1": "CHRG", "2": "LED_R"}, "C2286")
-smd(*LED, "D2", "LED green 0603", 9.0, 0.95, 0, {"1": "STDBY", "2": "LED_G"}, "C72043")
+smd(*LED, "D2", "LED green 0603", 9.0, 0.95, 0, {"1": "STDBY", "2": "LED_G"}, "C12624")
 res("R4", "1k", 5.95, 0.95, 0, "LED_R", "VBUS", "C21190")
 res("R5", "1k", 12.05, 0.95, 0, "LED_G", "VBUS", "C21190")
 
 # ---------------- power switch: slide switch drives a P-MOSFET ----------------
 facing("Button_Switch_SMD.pretty", "SW_SPDT_PCM12", "SW1", "Slide switch SPDT PCM12SMTR", 2.25, 17.5, "2",
-       {"1": "GND", "2": "GATE"}, "")
+       {"1": "GND", "2": "GATE"}, "C221841")
 smd("Package_TO_SOT_SMD.pretty", "SOT-23", "Q1", "AO3401A P-MOSFET", 6.7, 14.9, 0, {"1": "GATE", "2": "VBAT", "3": "VSYS"}, "C15127")
 res("R6", "100k", 9.7, 14.9, 90, "GATE", "VBAT", "C25803")
 
 # ---------------- battery plug (JST PH 2.0) ----------------
 smd("Connector_JST.pretty", "JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical", "J2", "JST PH 2P vertical B2B-PH-K-S", 12.8, 30.8, 180,
-    {"1": "VBAT", "2": "GND"}, "")
+    {"1": "VBAT", "2": "GND"}, "C131337")
 
 # ---------------- 5 V boost MT3608 (servo, brain, amplifier) ----------------
 smd("Package_TO_SOT_SMD.pretty", "SOT-23-6", "U2", "MT3608", 20.6, 3.0, 0,
     {"1": "BST_SW", "2": "GND", "3": "BST_FB", "4": "VSYS", "5": "VSYS"}, "C84817")
-smd("Inductor_SMD.pretty", "L_Changjiang_FNR5040S", "L1", "4.7-10uH 5040 Isat 3A+ (FNR5040S)", 20.75, 9.2, 0, {"1": "VSYS", "2": "BST_SW"}, "")
+smd("Inductor_SMD.pretty", "L_Changjiang_FNR5040S", "L1", "4.7uH 5040 Isat 3.8A (FNR5040S4R7MT)", 20.75, 9.2, 0, {"1": "VSYS", "2": "BST_SW"}, "C167963")
 smd("Diode_SMD.pretty", "D_SMA", "D3", "SS34", 26.6, 2.4, 0, {"1": "5V", "2": "BST_SW"}, "C8678")
 c10u("C3", 20.4, 13.4, 0, "VSYS", "GND")
 c10u("C4", 16.8, 13.4, 0, "VSYS", "GND")
@@ -165,9 +165,9 @@ cap("C13", "2.2uF 10V", 38.3, 14.9, 90, "DRV_VINT", "GND", lcsc="C23630")
 
 # ---------------- I2C expander PCA9534 (motor direction and sleep, edge sensors) ----------------
 # Same pins and address (0x20) as the PCF8574T, but its pins start as inputs at power-up, so the motors cannot start on their own.
-smd("Package_SO.pretty", "SOIC-16W_7.5x10.3mm_P1.27mm", "U5", "PCA9534DWR SO-16 wide", 11.1, 22.0, 0,
+smd("Package_SO.pretty", "SOIC-16W_7.5x10.3mm_P1.27mm", "U5", "TCA9534DWR SO-16 wide (PCA9534 twin)", 11.1, 22.0, 0,
     {"1": "GND", "2": "GND", "3": "GND", "4": "DIR_L", "5": "DIR_R", "6": "EDGE_L", "7": "EDGE_R", "8": "GND", "9": "DRV_SLEEP",
-     "14": "SCL", "15": "SDA", "16": "3V3"}, "")
+     "14": "SCL", "15": "SDA", "16": "3V3"}, "C2870609")    # TI TCA9534: same pins, address and registers as PCA9534; JLCPCB had 846 vs 1 in stock (17 Nov 2026)
 cap("C14", "100nF", 16.8, 15.6, 0, "3V3", "GND")
 res("R9", "4.7k", 20.0, 17.3, 0, "SDA", "3V3", "C23162")
 res("R10", "4.7k", 23.0, 17.3, 0, "SCL", "3V3", "C23162")

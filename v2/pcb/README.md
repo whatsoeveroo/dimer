@@ -57,26 +57,7 @@ The firmware pin map is in `v2/firmware/dimer_v2_pins.h`.
 
 ### Parts to check on the parts page
 
-LCSC is blocked from where this board was made, so no part number was checked live. These are the ones that need a look:
-
-| Ref | Part | LCSC # in the BOM | What to do |
-|---|---|---|---|
-| U5 | PCA9534, SO-16 wide (PCA9534DWR) | none | Search `PCA9534DW`. Must be the 7.5 mm wide SO-16 package, not TSSOP. |
-| L1 | 4.7 to 10 uH, 5 x 5 mm, saturation 3 A or more | none | Search `FNR5040S4R7` or `FNR5040S100`; pick the one with the higher saturation current (3 A or more). |
-| SW1 | Slide switch PCM12SMTR | none | Search `PCM12SMTR`. A same-size SMD right-angle SPDT switch also works. |
-| J2 | JST PH 2-pin vertical, B2B-PH-K-S | none | Search `B2B-PH-K-S`. |
-| U1 | TP4056 (ESOP-8 with heat pad) | C16581 | Make sure the part shown has the heat pad (ESOP-8, not SOP-8). |
-| U2 | MT3608 | C84817 | Make sure it says MT3608, SOT-23-6. |
-| R7 | 75 k 0603 | C23242 | Any 1% 75 k 0603 works. |
-| R3 | 3 k 0603 | C4211 | Any 3 k 0603 works. |
-| U3 | AP2112K-3.3, SOT-23-5 | C51118 | Check it says AP2112K-3.3. |
-| D4 | B5819W, SOD-123 | C8598 | Any 1 A Schottky in SOD-123 works. |
-| C5-C7 | 22 uF 0805, 10 V or more | C45783 | Any 22 uF 0805 X5R works. |
-| C13 | 2.2 uF 0603, 10 V or more | C23630 | Any 2.2 uF 0603 works. |
-| R9, R10 | 4.7 k 0603 | C23162 | Any 4.7 k 0603 works. |
-| J1 | USB-C 16P, TYPE-C-31-M-12 | C165948 | Should match; check the picture is a 16-pin USB-C. |
-
-All other numbers (DRV8833 C50506, AO3401A C15127, SS34 C8678, the capacitors, the pin headers) are the ones the V1 board uses or are JLCPCB basic parts.
+Every LCSC number in the BOM was checked on jlcpcb.com on 17 Nov 2026 and was in stock. The step-by-step order sheet, with the parts table and the placement checks, is in [ORDER_AT_JLCPCB.md](ORDER_AT_JLCPCB.md). Two swaps since the review: U5 is TI's TCA9534DWR (C2870609), the twin of the PCA9534 with the same pins, address and registers, because only one PCA9534 in the wide package was in stock; D2 is KT-0603G (C12624).
 
 ### Rough cost (USD, not a live quote)
 
@@ -103,7 +84,7 @@ The fixed fees are most of the price, so more boards in one order are much cheap
 
 | Finding | What r1 does |
 |---|---|
-| The PCF8574 starts with its pins high, so the motors could run backwards at power-up | Swapped to the PCA9534 (same pins and address, starts as inputs). Pull-downs on both direction lines, and the motor driver's sleep pin is on expander P4 with a pull-down: the tracks stay still until the firmware wakes them. |
+| The PCF8574 starts with its pins high, so the motors could run backwards at power-up | Swapped to the PCA9534 family, built as TI's TCA9534 (same pins and address, starts as inputs). Pull-downs on both direction lines, and the motor driver's sleep pin is on expander P4 with a pull-down: the tracks stay still until the firmware wakes them. |
 | The XIAO's 5V pin is its USB power, so USB programming would back-feed the board | The head's 5 V goes through a B5819W diode. |
 | 5 V bursts (servo, camera, Wi-Fi, speaker) | Output capacitors 3 x 22 uF instead of 3 x 10 uF, inductor rated 3 A or more. Measure the 5 V while the servo moves and the speaker plays before trusting it. |
 | AMS1117 needs a big output capacitor to be stable | Swapped to AP2112K-3.3. |
