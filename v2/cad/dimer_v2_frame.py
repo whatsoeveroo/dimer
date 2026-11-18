@@ -35,6 +35,7 @@ DSP = DISPLAYS[DISPLAY]
 VARIANT = DISPLAY != "st7735_096"     # the default display writes the main files; the others go to step/display_options/
 OUT = os.path.join(HERE, "step", "display_options", DISPLAY) if VARIANT else os.path.join(HERE, "step")
 if TILT: OUT = tempfile.mkdtemp()
+if os.environ.get("DIMER_OUT"): OUT = os.environ["DIMER_OUT"]   # used by dimer_v2_crucial.py so the main files stay untouched
 os.makedirs(OUT, exist_ok=True)
 
 # ---------------- parameters (edit me) ----------------
@@ -413,19 +414,20 @@ for name, (shape, _) in parts.items():
     b = shape.val().BoundingBox(); print(name, "valid" if shape.val().isValid() else "INVALID", "%.0fx%.0fx%.0f" % (b.xlen, b.ylen, b.zlen), "solids", shape.solids().size())
 
 # clash check: every bought part against the frame and against each other (by part name)
-groups = {}
-for n, s, _ in solids: groups.setdefault(n, []).append(s)
-comp = {n: cq.Compound.makeCompound(v) for n, v in groups.items()}
-names = list(comp); bad = 0
-for i in range(len(names)):
-    for j in range(i + 1, len(names)):
-        a, b = comp[names[i]], comp[names[j]]
-        ba, bb2 = a.BoundingBox(), b.BoundingBox()
-        if ba.xmin > bb2.xmax or bb2.xmin > ba.xmax or ba.ymin > bb2.ymax or bb2.ymin > ba.ymax or ba.zmin > bb2.zmax or bb2.zmin > ba.zmax: continue
-        try: vol = a.intersect(b).Volume()
-        except Exception: vol = 0
-        if {names[i][5:8], names[j][5:8]} == {"tra", "mot"}: continue
-        if any(n.startswith("part_screw") for n in (names[i], names[j])) and any(n.startswith(("v2_frame", "part_track", "part_edge")) for n in (names[i], names[j])):
-            continue   # screws bite into their pilot holes, the idler screw is the wheel's axle, and the sensor model's chip block sits over its real mounting hole      # motor shaft is a press fit in the wheel hub
-        if vol > 0.5: bad += 1; bx = a.intersect(b).BoundingBox(); print("CLASH %s x %s: %.1f mm3 at x %.0f..%.0f y %.0f..%.0f z %.0f..%.0f" % (names[i], names[j], vol, bx.xmin, bx.xmax, bx.ymin, bx.ymax, bx.zmin, bx.zmax))
-print("clashes over 0.5 mm3:", bad)
+if not os.environ.get("DIMER_NO_CHECK"):   # dimer_v2_crucial.py skips the slow clash check
+    groups = {}
+    for n, s, _ in solids: groups.setdefault(n, []).append(s)
+    comp = {n: cq.Compound.makeCompound(v) for n, v in groups.items()}
+    names = list(comp); bad = 0
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            a, b = comp[names[i]], comp[names[j]]
+            ba, bb2 = a.BoundingBox(), b.BoundingBox()
+            if ba.xmin > bb2.xmax or bb2.xmin > ba.xmax or ba.ymin > bb2.ymax or bb2.ymin > ba.ymax or ba.zmin > bb2.zmax or bb2.zmin > ba.zmax: continue
+            try: vol = a.intersect(b).Volume()
+            except Exception: vol = 0
+            if {names[i][5:8], names[j][5:8]} == {"tra", "mot"}: continue
+            if any(n.startswith("part_screw") for n in (names[i], names[j])) and any(n.startswith(("v2_frame", "part_track", "part_edge")) for n in (names[i], names[j])):
+                continue   # screws bite into their pilot holes, the idler screw is the wheel's axle, and the sensor model's chip block sits over its real mounting hole      # motor shaft is a press fit in the wheel hub
+            if vol > 0.5: bad += 1; bx = a.intersect(b).BoundingBox(); print("CLASH %s x %s: %.1f mm3 at x %.0f..%.0f y %.0f..%.0f z %.0f..%.0f" % (names[i], names[j], vol, bx.xmin, bx.xmax, bx.ymin, bx.ymax, bx.zmin, bx.zmax))
+    print("clashes over 0.5 mm3:", bad)
