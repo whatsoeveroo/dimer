@@ -8,7 +8,7 @@ Checked on AliExpress (Korea storefront) on 17 Nov 2026, then reviewed by GPT-6 
 
 | # | Part | Link | Pick | Order | Why this many | Bought | Got it |
 |---|---|---|---|---|---|---|---|
-| 1 | XIAO ESP32S3 Sense (Seeed official store) | [1005006988111963](https://www.aliexpress.com/item/1005006988111963.html) | Bundle: 3pcs (about ₩53,300) | 1 bundle = 3 boards | 2 robots + 1 spare. Headers come loose: 14 joints per board. | ☐ | ☐ |
+| 1 | XIAO ESP32S3 Sense (Seeed official store) | [1005007255799084](https://www.aliexpress.com/item/1005007255799084.html) (the first listing sold out on 18 Nov) | Bundle: 2pcs (about ₩34,400) | 1 bundle = 2 boards | 2 robots + 1 spare. Headers come loose: 14 joints per board. | ☐ | ☐ |
 | 2 | SG90 micro servo, 2-pack | [1005010044091396](https://www.aliexpress.com/item/1005010044091396.html) | 180 degree (positional, not 360) | 2 packs = 4 | 2 + 2 spare (the plastic gears strip easily) | ☐ | ☐ |
 | 3 | N20 gear motor (GA12-N20) | [1005003431435613](https://www.aliexpress.com/item/1005003431435613.html) | Speed 100RPM, Voltage 6V | 6 | 4 + 2 spare | ☐ | ☐ |
 | 4 | 0.96 in IPS ST7735 80 x 160 display | [1005007038493106](https://www.aliexpress.com/item/1005007038493106.html) | 0.96 inch, 80 x 160 | 3 | 2 + 1 spare | ☐ | ☐ |
