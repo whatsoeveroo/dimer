@@ -399,7 +399,10 @@ with zipfile.ZipFile(zp, "w", zipfile.ZIP_DEFLATED) as zf:
 # ---------------- JLCPCB assembly files: BOM + CPL ----------------
 # JLCPCB's part library is rotated against KiCad's for some packages; these are the usual corrections.
 # the SOT-23 rule also matches SOT-23-6 and SOT-223 (both 180 at JLCPCB); JLCPCB shows a placement preview to confirm.
-ROT_FIX = [(r"^HTSSOP-", 270), (r"^TQFN-", 270), (r"^QFN-", 270), (r"^SOT-23", 180), (r"^SOIC-", 270), (r"^CP_Elec_", 180)]
+# Checked against JLCPCB's placement preview on 18 Nov 2026: SOT-23-5/6 need 270 (not 180 like SOT-23),
+# pin headers and the JST PH socket came out turned 90 / 180 degrees and are corrected here.
+ROT_FIX = [(r"^HTSSOP-", 270), (r"^TQFN-", 270), (r"^QFN-", 270), (r"^SOT-23-[56]$", 270), (r"^SOT-23$", 180),
+           (r"^SOIC-", 270), (r"^CP_Elec_", 180), (r"^PinHeader_1x", 270), (r"^JST_PH_B2B-PH-K", 180)]
 groups, cpl = {}, []
 for fp in board.GetFootprints():
     ref = fp.GetReference()
