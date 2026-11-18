@@ -23,6 +23,10 @@ A second, smaller Dimer. V1 in the folders above is unchanged and still builds o
 | `firmware/` | `dimer_v2_pins.h` pin map for the XIAO ESP32S3 Sense. |
 | `pcb/` | The power board: KiCad file, Gerbers and JLCPCB parts files, ordering guide (`pcb/README.md`). |
 
+## Dimer 2.0 (Pololu tracks, detailed parts, Shell 2.0)
+
+`cad/dimer_2_0.py` is the update for the Pololu 22T track set: every bought part modelled in detail in its real position (the power board straight from KiCad with every chip and pin), and Shell 2.0 built around them, checked for clashes with the head level and tilted 25 degrees. About 117 x 70 x 73 mm. Files and fit notes: `cad/step/2_0/README.md`. 3D page: `docs/web/dimer_2_0.html` (live at https://claude.ai/artifact/T6Xt1bt9V6DTZrrdESP2VE). The V2 files below stay as they were.
+
 ## Printed parts
 
 - `v2_frame_chassis`: the tub. A tall bay at the back holds the battery and, above it on two wall ledges, the power board (one M2 screw at the rear right). The rear wall has the USB-C opening and the power switch slot. A low step at the front lets the head sit down close to the tracks. The tilt servo drops into a notch in the left wall.
