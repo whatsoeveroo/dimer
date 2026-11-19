@@ -11,6 +11,7 @@
 //
 // The loop() below runs about 100 times a second. Every time it:
 //   1) reads the edge sensors (safety first),
+//      (the tracks speed up gently but always stop instantly)
 //   2) does a small step of the current state,
 //   3) updates the face and the head.
 // Nothing in the loop waits long (no long delay()), so the edge sensors are always being watched.
@@ -35,6 +36,7 @@ unsigned long lastFunMs = 0;       // last time something happened (for falling 
 unsigned long bothEdgesSinceMs = 0, onTableSinceMs = 0, quietSinceMs = 0, nextGlanceMs = 0;
 int turnDirection = 1;             // 1 = turn right, -1 = turn left
 int wanderLeft = 0, wanderRight = 0;
+int edgeCountL = 0, edgeCountR = 0;    // readings in a row that saw no table
 bool micOk = false;
 
 const unsigned long BORED_AFTER_MS = 120000;   // 2 minutes
@@ -65,7 +67,7 @@ void startWander() {
   wanderRight = DRIVE_SPEED - curve;
   faceMood(MOOD_NORMAL);
   faceLook(curve / 40.0, 0.2);                  // look where we are heading
-  drive(wanderLeft, wanderRight);
+  driveSmooth(wanderLeft, wanderRight);
   goTo(WANDER, random(2000, 6000));
 }
 
@@ -145,8 +147,14 @@ void loop() {
   if (state == BROKEN) { faceUpdate(); tiltUpdate(); delay(10); return; }
 
   // 1) Safety: the edge sensors.
-  bool edgeL = edgeLeftNoTable();
-  bool edgeR = edgeRightNoTable();
+  // An edge only counts when two readings in a row agree (about 10 ms apart), so one
+  // flicker of a sensor does not make Dimer panic. Lost contact with the chip counts at once.
+  bool rawL, rawR;
+  bool chipOk = edgesRead(rawL, rawR);
+  edgeCountL = rawL ? edgeCountL + 1 : 0;
+  edgeCountR = rawR ? edgeCountR + 1 : 0;
+  bool edgeL = edgeCountL >= 2 || !chipOk;
+  bool edgeR = edgeCountR >= 2 || !chipOk;
 
   if (edgeL && edgeR) {
     if (bothEdgesSinceMs == 0) bothEdgesSinceMs = now;
@@ -189,9 +197,9 @@ void loop() {
       break;
 
     case EDGE_BACK:
-      if (now - stateStartMs > 150) drive(-DRIVE_SPEED, -DRIVE_SPEED);   // a moment's pause, then back up
+      if (now - stateStartMs > 150) driveSmooth(-DRIVE_SPEED, -DRIVE_SPEED);   // a moment's pause, then back up
       if (stateTimeUp()) {
-        drive(turnDirection * TURN_SPEED, -turnDirection * TURN_SPEED);
+        driveSmooth(turnDirection * TURN_SPEED, -turnDirection * TURN_SPEED);
         faceLook(turnDirection, 0);
         goTo(EDGE_TURN, random(400, 900));
       }
@@ -225,7 +233,8 @@ void loop() {
       break;
   }
 
-  // 4) Face and head.
+  // 4) Tracks, face and head.
+  motorsUpdate();
   faceUpdate();
   tiltUpdate();
   delay(5);

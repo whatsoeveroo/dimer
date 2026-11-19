@@ -53,3 +53,13 @@ bool edgeRightNoTable() {
   if (v < 0) return true;
   return v & (1 << EXP_EDGE_FR);
 }
+
+// Reads both edge sensors with one question to the chip (faster than asking twice).
+// Returns false if the chip did not answer; then both are set to true, so the robot stops.
+bool edgesRead(bool &left, bool &right) {
+  int v = expReadReg(EXP_REG_INPUT);
+  if (v < 0) { left = right = true; return false; }
+  left = v & (1 << EXP_EDGE_FL);
+  right = v & (1 << EXP_EDGE_FR);
+  return true;
+}

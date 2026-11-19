@@ -43,9 +43,40 @@ void drive(int left, int right) {
   motorSet(MOTOR_RIGHT, right);
 }
 
-void stopMotors() { drive(0, 0); }
+void stopMotors();   // defined below, after the smooth-start helpers
 
 void motorsSleep() {                     // stop and switch the driver off
   stopMotors();
   expSetPin(EXP_MOT_SLEEP, false);
+}
+
+// ---------- Smooth starts ----------
+// Starting both motors at full speed at once pulls a big gulp of current, which can make the
+// 5 V dip and reset the XIAO. driveSmooth() sets where we want to go; motorsUpdate(), called
+// every loop, climbs there over about 0.25 s. Stopping (stopMotors) is always instant.
+int motorTarget[2] = {0, 0};
+unsigned long motorLastRampMs = 0;
+#define MOTOR_RAMP_PER_SEC 1000   // speed units per second
+
+void driveSmooth(int left, int right) {
+  motorTarget[MOTOR_LEFT] = constrain(left, -255, 255);
+  motorTarget[MOTOR_RIGHT] = constrain(right, -255, 255);
+}
+
+void motorsUpdate() {
+  unsigned long now = millis();
+  int step = max(1, (int)(MOTOR_RAMP_PER_SEC * (now - motorLastRampMs) / 1000));
+  motorLastRampMs = now;
+  for (int side = 0; side < 2; side++) {
+    int cur = motorSpeedNow[side], tgt = motorTarget[side];
+    if (cur == tgt) continue;
+    if ((cur > 0 && tgt < 0) || (cur < 0 && tgt > 0)) tgt = 0;    // pass through 0 when reversing
+    int next = (cur < tgt) ? min(cur + step, tgt) : max(cur - step, tgt);
+    motorSet(side, next);
+  }
+}
+
+void stopMotors() {                      // instant stop, and forget any smooth target
+  motorTarget[MOTOR_LEFT] = motorTarget[MOTOR_RIGHT] = 0;
+  drive(0, 0);
 }
